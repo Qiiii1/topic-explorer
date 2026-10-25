@@ -8,5 +8,8 @@
     "test": "node --test test/*.test.mjs",
     "check": "node --check server.mjs && node --check app/app.js && node --check app/domain.js && node --check app/demo.js"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
 }
