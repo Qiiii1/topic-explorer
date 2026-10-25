@@ -46,14 +46,56 @@ function freePosition(project, x, y) {
   while (project.nodes.some(n => Math.abs(n.x - x) < CARD.width + 30 && Math.abs(n.y - y) < CARD.height + 28) && attempts++ < 100) y += CARD.height + 38;
   return { x, y };
 }
-export function appendGenerated(project, parentId, kind, candidates, origin = 'demo') {
+// Reserve a loose ring of positions before requesting content, without moving existing work.
+export function surroundingPositions(nodes, anchor, count, phase = nodes.length * 0.73) {
+  const occupied = [...nodes], positions = [], gapX = CARD.width + 58, gapY = CARD.height + 66;
+  for (let i = 0; i < count; i++) {
+    const angle = phase + i * Math.PI * 2 / Math.max(count, 1);
+    let position;
+    for (let attempt = 0; attempt < 400; attempt++) {
+      const ring = Math.floor(attempt / 16), turn = attempt % 16;
+      const offset = turn ? Math.ceil(turn / 2) * 0.13 * (turn % 2 ? 1 : -1) : 0;
+      const radius = Math.max(1.28, count / 5) + ring * 0.48;
+      position = {x: Math.round(anchor.x + Math.cos(angle + offset) * gapX * radius), y: Math.round(anchor.y + Math.sin(angle + offset) * gapY * radius)};
+      if (!occupied.some(n => Math.abs(n.x - position.x) < gapX && Math.abs(n.y - position.y) < gapY)) break;
+    }
+    positions.push(position); occupied.push(position);
+  }
+  return positions;
+}
+// A local, damped collision step. Spatial buckets keep distant cards out of the work.
+export function repelCards(nodes, fixedId, {strength = 0.38, maxStep = 24, gap = 36, activeIds = new Set([fixedId])} = {}) {
+  const width = CARD.width + gap, height = CARD.height + gap, buckets = new Map(), moved = new Set();
+  const push = (node, dx, dy) => {
+    node.x += dx; node.y += dy; moved.add(node.id); activeIds.add(node.id);
+  };
+  for (const node of nodes) {
+    const gx = Math.floor(node.x / width), gy = Math.floor(node.y / height);
+    for (let x = gx - 1; x <= gx + 1; x++) for (let y = gy - 1; y <= gy + 1; y++) {
+      for (const other of buckets.get(`${x},${y}`) || []) {
+        if (!activeIds.has(node.id) && !activeIds.has(other.id)) continue;
+        const dx = node.x - other.x, dy = node.y - other.y, overlapX = width - Math.abs(dx), overlapY = height - Math.abs(dy);
+        if (overlapX <= 0.12 || overlapY <= 0.12) continue;
+        const horizontal = overlapX < overlapY, distance = Math.min(maxStep, (horizontal ? overlapX : overlapY) * strength);
+        const sign = (horizontal ? dx : dy) < 0 ? -1 : 1;
+        const nShare = node.id === fixedId ? 0 : other.id === fixedId ? 1 : 0.5;
+        const oShare = 1 - nShare;
+        if (nShare) push(node, horizontal ? sign * distance * nShare : 0, horizontal ? 0 : sign * distance * nShare);
+        if (oShare) push(other, horizontal ? -sign * distance * oShare : 0, horizontal ? 0 : -sign * distance * oShare);
+      }
+    }
+    const key = `${Math.floor(node.x / width)},${Math.floor(node.y / height)}`;
+    if (!buckets.has(key)) buckets.set(key, []); buckets.get(key).push(node);
+  }
+  return moved;
+}
+export function appendGenerated(project, parentId, kind, candidates, origin = 'demo', reserved = null) {
   const parent = project.nodes.find(n => n.id === parentId);
   if (!parent || !KINDS[kind] || kind === 'root') throw new Error('请先选中一个有效节点');
-  const center = rootOf(project), direction = parent.kind === 'root' ? (kind === 'scene' ? -1 : 1) : (parent.x < center.x ? -1 : 1);
+  const positions = reserved || surroundingPositions(project.nodes, parent, candidates.length);
   const nodes = candidates.map((item, i) => {
-    const vertical = parent.kind === 'root' && kind === 'people';
-    const pos = freePosition(project, vertical ? parent.x + (i - (candidates.length - 1) / 2) * 292 : parent.x + direction * 370,
-      vertical ? parent.y + 310 : parent.y + (i - (candidates.length - 1) / 2) * 204);
+    const preferred = positions[i] || surroundingPositions(project.nodes, parent, 1)[0];
+    const pos = freePosition(project, preferred.x, preferred.y);
     const node = { id: uid(), kind, title: String(item.title).slice(0, 90), description: String(item.description || '').slice(0, 1600), rationale: String(item.rationale || '').slice(0, 1600), parentIds: [parent.id], ...pos, origin };
     project.nodes.push(node); project.edges.push({ id: uid(), from: parent.id, to: node.id, relation: parent.kind === kind ? '继续细化' : `探索${KINDS[kind].label}`, rationale: node.rationale });
     return node;
@@ -76,10 +118,11 @@ export function assignParent(project, nodeId, parentId) {
   node.rationale=`你将“${node.title}”归到“${parent.title}”下，可编辑这一步的关联理由。`;
   project.edges.push({id:uid(),from:parent.id,to:node.id,relation:'手动关联',rationale:node.rationale});
 }
-export function mergeNodes(project, aId, bId, candidate, origin = 'demo') {
+export function mergeNodes(project, aId, bId, candidate, origin = 'demo', reserved = null) {
   const a = project.nodes.find(n => n.id === aId), b = project.nodes.find(n => n.id === bId);
   if (!a || !b || a.id === b.id || a.kind !== b.kind || a.kind === 'root') throw new Error('请选择两张不同的同类卡片');
-  const pos = freePosition(project, (a.x + b.x) / 2, Math.max(a.y, b.y) + 260);
+  const preferred = reserved || surroundingPositions(project.nodes, {x:(a.x+b.x)/2,y:(a.y+b.y)/2}, 1)[0];
+  const pos = freePosition(project, preferred.x, preferred.y);
   const node = { id: uid(), kind: a.kind, title: String(candidate.title).slice(0, 90), description: String(candidate.description || '').slice(0, 1600), rationale: String(candidate.rationale || '').slice(0, 1600), parentIds: [a.id, b.id], ...pos, origin, merged: true };
   project.nodes.push(node);
   for (const p of [a, b]) project.edges.push({ id: uid(), from: p.id, to: node.id, relation: '共同点 / 交集', rationale: node.rationale, merged: true });

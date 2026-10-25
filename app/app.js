@@ -1,4 +1,4 @@
-import { KINDS, CARD, uid, clone, createProject, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, appendManual, mergeNodes, assignParent, favoriteNode, removeBranch, visibleNodes, boundsOf, validateProject, toMarkdown } from './domain.js';
+import { KINDS, CARD, uid, clone, createProject, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, appendManual, mergeNodes, assignParent, favoriteNode, removeBranch, visibleNodes, boundsOf, validateProject, toMarkdown, surroundingPositions, repelCards } from './domain.js';
 import { demoGenerate } from './demo.js';
 
 const $=(selector,scope=document)=>scope.querySelector(selector);
@@ -16,13 +16,14 @@ const STORAGE='topic-explorer-projects-v1';
 let projects=[];try{projects=JSON.parse(localStorage.getItem(STORAGE)||'[]').flatMap(value=>{try{return [validateProject(value)];}catch{return [];}});}catch{projects=[];}
 let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,tool='select',assigning=null,connecting=null,pending=null,search='',query='',manualDraft='',manualKind='scene',modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},history=[],future=[],savedSelection=new Set(),drag=null,spaceHeld=false;
 let lastFocus=null,saveTimer=null,queuedAfterModel=null,fanPinned=null,cordDrag=null,suppressCordClick=false;
+let cardMotion=null;
 const app=$('#app'),overlays=$('#overlays');
 
 function persist(){
   if(p){p.updatedAt=new Date().toISOString();const index=projects.findIndex(v=>v.id===p.id);if(index<0)projects.unshift(p);else projects[index]=p;}
   try{localStorage.setItem(STORAGE,JSON.stringify(projects));}catch{toast('浏览器存储空间不足，请导出项目文件。','error');}
 }
-function commit(change){history.push(clone(p));if(history.length>60)history.shift();future=[];change();persist();}
+function commit(change){finishCardMotion();history.push(clone(p));if(history.length>60)history.shift();future=[];change();persist();}
 function toast(message,type='success'){
   const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=message;$('#toasts').appendChild(el);setTimeout(()=>el.remove(),type==='error'?6000:3600);
 }
@@ -85,21 +86,41 @@ function drawGraph(){
   $('#nodes').innerHTML=nodes.map(n=>{
     const active=n.id===selected,saved=p.favorites.some(f=>f.nodeId===n.id),match=!search||`${n.title} ${n.description}`.toLowerCase().includes(search.toLowerCase());
     const valid=connecting&&connecting!==n.id&&p.nodes.find(v=>v.id===connecting)?.kind===n.kind;
-    return `<article class="idea-card kind-${n.kind} ${active?'is-selected':''} ${n.hidden?'is-hidden':''} ${!match?'search-dim':''} ${connecting?'is-connecting':''} ${valid?'valid-target':''} ${assigning&&descendantsOf(p,assigning).has(n.id)?'invalid-parent':''} ${fanPinned===n.id?'fan-pinned':''} ${menu==='node'&&active?'menu-open':''}" style="left:${n.x}px;top:${n.y}px" data-node="${n.id}" role="button" tabindex="0" aria-label="${KINDS[n.kind].label}：${esc(n.title)}" aria-pressed="${active}">
+    return `<article class="idea-card kind-${n.kind} ${active?'is-selected':''} ${ancestors.has(n.id)&&!active?'is-upstream':''} ${ancestors.size>1&&!ancestors.has(n.id)?'off-path':''} ${n.hidden?'is-hidden':''} ${!match?'search-dim':''} ${connecting?'is-connecting':''} ${valid?'valid-target':''} ${assigning&&descendantsOf(p,assigning).has(n.id)?'invalid-parent':''} ${fanPinned===n.id?'fan-pinned':''} ${menu==='node'&&active?'menu-open':''}" style="left:${n.x}px;top:${n.y}px" data-x="${n.x}" data-y="${n.y}" data-node="${n.id}" role="button" tabindex="0" aria-label="${KINDS[n.kind].label}：${esc(n.title)}${ancestors.has(n.id)&&!active?'，当前方向的上游':''}" aria-pressed="${active}">
       <div class="dimension-deck" role="group" aria-label="为${esc(n.title)}选择细化维度">${['people','pain','scene'].map((kind,i)=>`<button class="dimension-option type-${kind}" style="--fan-index:${i}" data-action="expand" data-kind="${kind}" data-id="${n.id}" aria-label="从${KINDS[kind].label}细化：${esc(n.title)}"><span class="dimension-dot"></span><strong>${KINDS[kind].label}</strong><span class="dimension-count">${p.generationCount} 张</span>${icon('arrow')}</button>`).join('')}</div><div class="card-surface"><div class="card-top">${n.kind==='root'?'<span class="type-chip type-root"><span></span>主选题</span>':chip(n.kind)}${n.merged?'<span class="merge-tag" title="来自两个想法的交集">∩</span>':''}</div><h3>${esc(n.title)}</h3><button class="card-more" data-action="node-menu" data-id="${n.id}" aria-label="卡片操作：${esc(n.title)}">···</button></div><button class="node-expand" data-action="expand-same" data-id="${n.id}" aria-label="${n.kind==='root'?'展开选题维度':'继续细化'}：${esc(n.title)}">${icon('plus')}</button>${n.kind!=='root'?`<button class="card-star ${saved?'is-saved':''}" data-action="favorite" data-id="${n.id}" aria-label="${saved?'取消收藏':'收藏完整路径'}：${esc(n.title)}" aria-pressed="${saved}">${icon('star')}</button>`:''}<span class="selection-corner" aria-hidden="true">✓</span>${n.kind!=='root'?`<button class="connection-handle handle-right" data-handle="${n.id}" aria-label="拖动加号连接同类卡片：${esc(n.title)}" title="拖出连线，与同类卡片组合"><span aria-hidden="true">+</span></button>`:''}</article>`;
-  }).join('');
-  $('#edges').innerHTML=p.edges.filter(e=>ids.has(e.from)&&ids.has(e.to)).map(e=>{
+  }).join('')+pendingCardMarkup();
+  $('#edges').innerHTML='<defs><marker id="path-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#007aff"/></marker></defs>'+p.edges.filter(e=>ids.has(e.from)&&ids.has(e.to)).sort((a,b)=>Number(ancestors.has(a.from)&&ancestors.has(a.to))-Number(ancestors.has(b.from)&&ancestors.has(b.to))).map(e=>{
     const a=p.nodes.find(n=>n.id===e.from),b=p.nodes.find(n=>n.id===e.to),c=curve(a,b),active=ancestors.has(e.from)&&ancestors.has(e.to),label=e.merged?'共同点 / 交集':e.relation;
-    return `<g class="edge-group ${active?'is-active':''} ${e.merged?'merged-edge':''}" data-edge="${e.id}" role="button" tabindex="0" aria-label="查看关联：${esc(a.title)}到${esc(b.title)}"><path class="edge-line" d="${c.d}"></path><path class="edge-hit" d="${c.d}"></path><g class="edge-label" transform="translate(${c.mx},${c.my})"><rect x="-51" y="-13" width="102" height="26" rx="13"></rect><text y="4" text-anchor="middle">${esc(label)}</text></g></g>`;
-  }).join('');
+    return `<g class="edge-group ${active?'is-active':''} ${ancestors.size>1&&!active?'is-muted':''} ${e.merged?'merged-edge':''}" data-edge="${e.id}" role="button" tabindex="0" aria-label="查看关联：${esc(a.title)}到${esc(b.title)}">${active?`<path class="edge-halo" d="${c.d}"></path>`:''}<path class="edge-line" d="${c.d}" ${active?'marker-end="url(#path-arrow)"':''}></path>${active?`<path class="edge-flow" d="${c.d}"></path>`:''}<path class="edge-hit" d="${c.d}"></path><g class="edge-label" transform="translate(${c.mx},${c.my})"><rect x="-51" y="-13" width="102" height="26" rx="13"></rect><text y="4" text-anchor="middle">${esc(label)}</text></g></g>`;
+  }).join('')+pendingEdgesMarkup();
   updateView();updatePath();drawShelf();drawOutline();drawNodePanel();updateNotices();
   $('#node-count').textContent=`${p.nodes.length} 个想法${focusId?' · 正在聚焦一条分支':''}`;
-  $('#canvas-empty').hidden=p.nodes.length>1;
+  $('#canvas-empty').hidden=p.nodes.length>1||!!pending;
   if(p.nodes.length===1)$('#canvas-empty').innerHTML='<span>悬停选题中心，在上方选择细化维度。</span><p>场景、痛点、人群，可以从任何一处开始。</p>';
   if(search){const matches=nodes.filter(n=>`${n.title} ${n.description}`.toLowerCase().includes(search.toLowerCase()));$('#node-count').textContent=matches.length?`找到 ${matches.length} 个相关想法`:'没有找到相关想法';}
   const undo=$('[data-action="undo"]'),redo=$('[data-action="redo"]');
   if(undo)undo.disabled=!history.length;if(redo)redo.disabled=!future.length;
   updatePull();
+}
+function pendingCardMarkup(){
+  if(!pending?.positions?.length)return '';
+  const pos=pending.positions[0];
+  return `<article class="loading-card type-${pending.kind}" style="left:${pos.x}px;top:${pos.y}px" role="status" aria-live="polite" aria-busy="true"><div class="loading-top"><span class="skeleton-orb"></span><span class="skeleton-line skeleton-heading"></span></div><div class="loading-lines" aria-hidden="true"><span class="skeleton-line"></span><span class="skeleton-line"></span></div><div class="loading-caption"><span class="loading-word">${pending.operation==='merge'?'寻找交集中':'生成'+KINDS[pending.kind].label+'中'}</span><span class="loading-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="loading-count">${pending.count} 张</span></div></article>`;
+}
+function pendingEdgesMarkup(){
+  if(!pending?.positions?.length)return '';
+  return pending.sourceIds.map(id=>{const source=p.nodes.find(n=>n.id===id);return source?`<path class="pending-connector" d="${curve(source,pending.positions[0]).d}"/>`:'';}).join('');
+}
+function revealCards(nodes){
+  const world=$('#world'),before=getComputedStyle(world).transform;
+  fitView(nodes,true);
+  world.animate([{transform:before},{transform:world.style.transform}],{duration:motionDuration(500),easing:'cubic-bezier(.2,.8,.2,1)'});
+}
+function animateCreated(nodes,anchor){
+  nodes.forEach((n,i)=>{
+    const el=$(`[data-node="${n.id}"]`);if(!el)return;
+    el.animate([{opacity:0,transform:`translate(${i?(anchor.x-n.x)*0.2:0}px,${i?(anchor.y-n.y)*0.2:8}px) scale(.94)`},{opacity:1,transform:'translate(0,0) scale(1)'}],{duration:motionDuration(520),delay:motionDuration(i*45),easing:'cubic-bezier(.18,.85,.25,1.12)',fill:'backwards'});
+  });
 }
 function updateView(){
   const world=$('#world');if(world)world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.scale})`;
@@ -150,6 +171,7 @@ function updateNotices(){
   if(pending){progress.hidden=false;progress.innerHTML=`<span class="spinner"></span><span>${esc(pending.label)}</span>${button('取消','cancel-generation')}`;}else progress.hidden=true;
 }
 function openProject(project){
+  finishCardMotion();
   pending?.controller.abort();pending=null;p=project;screen='workspace';selected=rootOf(p).id;menu=null;fanPinned=null;focusId=null;showShelf=false;showOutline=false;showHidden=false;history=[];future=[];search='';assigning=null;connecting=null;manualDraft='';render();requestAnimationFrame(()=>fitView());
 }
 function openDemo(){
@@ -168,13 +190,16 @@ async function generate(parentId,kind){
   if(pending)return toast('请等待这次生成完成，或先取消。');
   if(model.mode!=='live'){queuedAfterModel=()=>generate(parentId,kind);openModal('model');return;}
   const node=p.nodes.find(n=>n.id===parentId);if(!node)return;
-  const projectId=p.id,controller=new AbortController();pending={controller,label:`沿着“${node.title.slice(0,18)}”生成 ${p.generationCount} 张${KINDS[kind].label}…`};menu=null;drawNodePanel();updateNotices();
+  finishCardMotion();
+  const projectId=p.id,count=p.generationCount,controller=new AbortController(),positions=surroundingPositions(p.nodes,node,count);
+  pending={controller,operation:'expand',kind,count,positions,sourceIds:[parentId],label:`沿着“${node.title.slice(0,18)}”生成 ${count} 张${KINDS[kind].label}…`};menu=null;fanPinned=null;selected=parentId;drawGraph();revealCards([...ancestorsOf(p,parentId),...positions]);
   try{
-    const result=await api('/generate',{operation:'expand',project:{title:p.title,description:p.description,context:p.context},node,ancestors:ancestorsOf(p,node.id),targetKind:kind,count:p.generationCount,exclude:p.nodes.filter(n=>n.parentIds.includes(node.id)&&n.kind===kind).map(n=>n.title)},controller.signal);
+    const result=await api('/generate',{operation:'expand',project:{title:p.title,description:p.description,context:p.context},node,ancestors:ancestorsOf(p,node.id),targetKind:kind,count,exclude:p.nodes.filter(n=>n.parentIds.includes(node.id)&&n.kind===kind).map(n=>n.title)},controller.signal);
     if(controller.signal.aborted||p?.id!==projectId)return;
     if(!result.nodes.length)throw new Error(result.message||'模型没有给出可用候选，可以调整条件后重试。');
-    let created;commit(()=>created=appendGenerated(p,parentId,kind,result.nodes,'live'));selected=created[0].id;menu=null;drawGraph();fitView();centerNode(selected);toast(`已生成 ${created.length} 个${KINDS[kind].label}候选，每个都保留了上层关联。`);
-  }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller)pending=null;updateNotices();}
+    if(!p.nodes.some(n=>n.id===parentId))throw new Error('来源卡片已被移除，这次结果没有加入画布。');
+    pending=null;let created;commit(()=>created=appendGenerated(p,parentId,kind,result.nodes,'live',positions));selected=created[0].id;menu=null;drawGraph();revealCards([...ancestorsOf(p,parentId),...created]);animateCreated(created,node);toast(`已生成 ${created.length} 个${KINDS[kind].label}候选，每个都保留了上层关联。`);
+  }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller){pending=null;drawGraph();}updateNotices();}
 }
 async function combine(aId,bId){
   if(pending)return toast('请等待这次生成完成，或先取消。');
@@ -182,13 +207,16 @@ async function combine(aId,bId){
   if(!a||!b||a.id===b.id||a.kind!==b.kind||a.kind==='root')return toast('只能关联两张不同的同类卡片。','error');
   connecting=null;assigning=null;
   if(model.mode!=='live'){queuedAfterModel=()=>combine(aId,bId);openModal('model');drawGraph();return;}
-  const projectId=p.id,controller=new AbortController();pending={controller,label:'正在提取两张卡片的共同点或交集…'};drawGraph();
+  finishCardMotion();
+  const projectId=p.id,controller=new AbortController(),positions=surroundingPositions(p.nodes,{x:(a.x+b.x)/2,y:(a.y+b.y)/2},1);
+  pending={controller,operation:'merge',kind:a.kind,count:1,positions,sourceIds:[aId,bId],label:'正在提取两张卡片的共同点或交集…'};drawGraph();revealCards([...ancestorsOf(p,aId),...ancestorsOf(p,bId),...positions]);
   try{
     const result=await api('/generate',{operation:'merge',project:{title:p.title,description:p.description,context:p.context},nodes:[a,b],ancestors:[ancestorsOf(p,aId),ancestorsOf(p,bId)]},controller.signal);
     if(controller.signal.aborted||p?.id!==projectId)return;
     if(!result.nodes.length){toast(result.message||'没有找到合理交集，原卡片已保留。');return;}
-    let node;commit(()=>node=mergeNodes(p,aId,bId,result.nodes[0],'live'));selected=node.id;drawGraph();fitView();centerNode(selected);toast('已生成交集卡片，两个来源均已保留。');
-  }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller)pending=null;updateNotices();}
+    if(![aId,bId].every(id=>p.nodes.some(n=>n.id===id)))throw new Error('来源卡片已被移除，这次结果没有加入画布。');
+    pending=null;let node;commit(()=>node=mergeNodes(p,aId,bId,result.nodes[0],'live',positions[0]));selected=node.id;drawGraph();revealCards(ancestorsOf(p,node.id));animateCreated([node],positions[0]);toast('已生成交集卡片，两个来源均已保留。');
+  }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller){pending=null;drawGraph();}updateNotices();}
 }
 function addManualCard(e){
   e?.preventDefault();if(!manualDraft.trim())return $('#manual-text').focus();
@@ -196,10 +224,34 @@ function addManualCard(e){
   commit(()=>n=appendManual(p,null,manualKind,manualDraft.trim(),'',position));selected=n.id;manualDraft='';$('#manual-text').value='';drawGraph();centerNode(n.id);menu='node';drawNodePanel();toast('已添加独立卡片，可在卡片操作中“指定上层”。');
 }
 function selectNode(id){
+  finishCardMotion();
   const node=p.nodes.find(n=>n.id===id);if(!node)return;
   if(assigning){try{const moving=assigning;commit(()=>assignParent(p,moving,id));assigning=null;selected=moving;menu=null;drawGraph();toast('已指定上层，完整路径已更新。');}catch(e){toast(e.message,'error');}return;}
   if(connecting){if(connecting===id)return;combine(connecting,id);return;}
   selected=id;menu=null;fanPinned=matchMedia('(hover: none)').matches?id:null;drawGraph();$(`[data-node="${id}"]`)?.focus({preventScroll:true});
+}
+function paintCardPositions(nodes){
+  for(const n of nodes){const el=$(`[data-node="${n.id}"]`);if(el)el.style.translate=`${n.x-Number(el.dataset.x)}px ${n.y-Number(el.dataset.y)}px`;}
+  updateEdgePositions();
+}
+function finishCardMotion(record=true){
+  const motion=cardMotion;if(!motion)return;
+  cardMotion=null;cancelAnimationFrame(motion.frame);
+  if(drag?.type==='node')drag=null;
+  $('#surface')?.classList.remove('is-dragging-card');
+  if(p?.id===motion.projectId&&record){history.push(motion.before);if(history.length>60)history.shift();future=[];persist();}
+}
+function startCardMotion(before,id){
+  cardMotion={before,fixedId:id,projectId:p.id,nodes:visibleNodes(p,{focusId,showHidden}),activeIds:new Set([id]),released:false,settleFrames:0};
+  $('#surface').classList.add('is-dragging-card');
+  function tick(){
+    const motion=cardMotion;if(!motion||p?.id!==motion.projectId)return;
+    const moved=repelCards(motion.nodes,motion.fixedId,{activeIds:motion.activeIds});
+    paintCardPositions(motion.nodes);
+    if(motion.released&&(!moved.size||++motion.settleFrames>100)){finishCardMotion();drawGraph();return;}
+    motion.frame=requestAnimationFrame(tick);
+  }
+  cardMotion.frame=requestAnimationFrame(tick);
 }
 function bindCanvas(){
   const surface=$('#surface');
@@ -207,11 +259,13 @@ function bindCanvas(){
   surface.addEventListener('pointerdown',event=>{
     if(event.button!==0&&event.button!==1)return;
     const handle=event.target.closest('[data-handle]'),nodeEl=event.target.closest('[data-node]');
-    if(handle){event.preventDefault();event.stopPropagation();connecting=handle.dataset.handle;assigning=null;fanPinned=null;menu=null;drag={type:'link',id:connecting,startX:event.clientX,startY:event.clientY,moved:false};surface.setPointerCapture(event.pointerId);drawGraph();return;}
+    if(handle){finishCardMotion();event.preventDefault();event.stopPropagation();connecting=handle.dataset.handle;assigning=null;fanPinned=null;menu=null;drag={type:'link',id:connecting,startX:event.clientX,startY:event.clientY,moved:false};surface.setPointerCapture(event.pointerId);drawGraph();return;}
     if(event.target.closest('button,[data-edge]')&&!spaceHeld&&tool!=='hand')return;
+    finishCardMotion();
     if(nodeEl&&!spaceHeld&&tool!=='hand'&&event.button!==1){const n=p.nodes.find(v=>v.id===nodeEl.dataset.node);drag={type:'node',id:n.id,startX:event.clientX,startY:event.clientY,x:n.x,y:n.y,moved:false,before:clone(p)};}
     else{drag={type:'pan',startX:event.clientX,startY:event.clientY,x:view.x,y:view.y,moved:false};surface.classList.add('is-panning');}
     event.preventDefault();
+    surface.setPointerCapture(event.pointerId);
   });
   surface.addEventListener('dblclick',event=>{if(event.target.closest('[data-node],button,[data-edge]'))return;$('#manual-text').focus();});
 }
@@ -223,7 +277,10 @@ document.addEventListener('pointermove',event=>{
   if(cordDrag){const delta=event.clientY-cordDrag.startY;if(Math.abs(delta)>5){cordDrag.pull.classList.add('is-dragging');cordDrag.pull.style.setProperty('--cord-offset',Math.max(-30,Math.min(30,delta))+'px');}return;}
   if(!drag)return;const dx=event.clientX-drag.startX,dy=event.clientY-drag.startY;if(Math.hypot(dx,dy)>4)drag.moved=true;
   if(drag.type==='pan'){view.x=drag.x+dx;view.y=drag.y+dy;updateView();}
-  if(drag.type==='node'&&drag.moved){const n=p.nodes.find(v=>v.id===drag.id);n.x=drag.x+dx/view.scale;n.y=drag.y+dy/view.scale;const el=$(`[data-node="${n.id}"]`);if(el){el.style.left=n.x+'px';el.style.top=n.y+'px';}updateEdgePositions();}
+  if(drag.type==='node'&&drag.moved){
+    if(!cardMotion){selected=drag.id;fanPinned=null;menu=null;drawGraph();startCardMotion(drag.before,drag.id);}
+    const n=p.nodes.find(v=>v.id===drag.id);n.x=drag.x+dx/view.scale;n.y=drag.y+dy/view.scale;paintCardPositions([n]);
+  }
   if(drag.type==='link'){
     const n=p.nodes.find(v=>v.id===drag.id),rect=$('#surface').getBoundingClientRect(),x=(event.clientX-rect.left-view.x)/view.scale,y=(event.clientY-rect.top-view.y)/view.scale;
     const target=document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-node]'),candidate=p.nodes.find(v=>v.id===target?.dataset.node),valid=candidate&&candidate.id!==n.id&&candidate.kind===n.kind;
@@ -235,20 +292,28 @@ document.addEventListener('pointermove',event=>{
 document.addEventListener('pointerup',event=>{
   if(cordDrag){const old=cordDrag,delta=event.clientY-old.startY;cordDrag=null;old.pull.classList.remove('is-dragging');old.pull.style.removeProperty('--cord-offset');if(Math.abs(delta)>12){suppressCordClick=true;setTimeout(()=>suppressCordClick=false,0);if((!old.wasOpen&&delta>12)||(old.wasOpen&&delta< -12))toggleShelf();}return;}
   if(!drag)return;const old=drag;drag=null;$('#surface')?.classList.remove('is-panning');
-  if(old.type==='node'){if(old.moved){history.push(old.before);future=[];persist();}else selectNode(old.id);}
+  if(old.type==='node'){
+    if(old.moved&&cardMotion){
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<120;i++)if(!repelCards(cardMotion.nodes,cardMotion.fixedId,{activeIds:cardMotion.activeIds}).size)break;paintCardPositions(cardMotion.nodes);finishCardMotion();drawGraph();}
+      else cardMotion.released=true;
+    }else selectNode(old.id);
+  }
   if(old.type==='pan'&&!old.moved){if(!event.target.closest('[data-node],[data-edge]')){menu=null;fanPinned=null;$$('.fan-pinned').forEach(el=>el.classList.remove('fan-pinned'));drawNodePanel();}}
   if(old.type==='link'){$('#link-preview').innerHTML='';const target=document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-node]');if(old.moved){connecting=null;drawGraph();if(target&&target.dataset.node!==old.id)combine(old.id,target.dataset.node);}else{connecting=old.id;drawGraph();}}
 });
 function updateEdgePositions(){
-  for(const group of $$('.edge-group')){const edge=p.edges.find(e=>e.id===group.dataset.edge),a=p.nodes.find(n=>n.id===edge.from),b=p.nodes.find(n=>n.id===edge.to),c=curve(a,b);$$('path',group).forEach(path=>path.setAttribute('d',c.d));$('.edge-label',group).setAttribute('transform',`translate(${c.mx},${c.my})`);}
+  const edgeIndex=new Map(p.edges.map(e=>[e.id,e])),nodeIndex=new Map(p.nodes.map(n=>[n.id,n]));
+  for(const group of $$('.edge-group')){const edge=edgeIndex.get(group.dataset.edge),a=nodeIndex.get(edge.from),b=nodeIndex.get(edge.to),c=curve(a,b);$$('path',group).forEach(path=>path.setAttribute('d',c.d));$('.edge-label',group).setAttribute('transform',`translate(${c.mx},${c.my})`);}
+  const previews=$$('.pending-connector');if(pending?.positions)previews.forEach((el,i)=>{const source=p.nodes.find(n=>n.id===pending.sourceIds[i]);if(source)el.setAttribute('d',curve(source,pending.positions[0]).d);});
 }
-document.addEventListener('pointercancel',()=>{if(cordDrag){cordDrag.pull.classList.remove('is-dragging');cordDrag.pull.style.removeProperty('--cord-offset');cordDrag=null;}if(drag){drag=null;connecting=null;$('#surface')?.classList.remove('is-panning');if($('#link-preview'))$('#link-preview').innerHTML='';if(screen==='workspace')drawGraph();}});
+document.addEventListener('pointercancel',()=>{if(cordDrag){cordDrag.pull.classList.remove('is-dragging');cordDrag.pull.style.removeProperty('--cord-offset');cordDrag=null;}if(drag){const before=drag.type==='node'&&drag.moved?drag.before:null;finishCardMotion(false);drag=null;connecting=null;if(before){p=before;persist();}$('#surface')?.classList.remove('is-panning');if($('#link-preview'))$('#link-preview').innerHTML='';if(screen==='workspace')drawGraph();}});
 document.addEventListener('click',event=>{
   const action=event.target.closest('[data-action]');if(action){event.stopPropagation();if(action.dataset.action==='shelf'&&suppressCordClick){suppressCordClick=false;return;}dispatch(action.dataset.action,action);return;}
   const edge=event.target.closest('[data-edge]');if(edge){const e=p.edges.find(v=>v.id===edge.dataset.edge);openModal('edge',e);}
 });
 document.addEventListener('change',event=>{if(event.target.matches('[data-saved-check]')){const id=event.target.dataset.savedCheck;event.target.checked?savedSelection.add(id):savedSelection.delete(id);drawShelf();}});
 function dispatch(action,el){
+  finishCardMotion();
   const id=el?.dataset.id;
   try{switch(action){
     case'home':pending?.controller.abort();pending=null;persist();screen='home';modal=null;overlays.innerHTML='';render();break;
@@ -280,7 +345,7 @@ function dispatch(action,el){
     case'assign':assigning=id;connecting=null;menu=null;drawGraph();break;
     case'connect':connecting=id;assigning=null;menu=null;drawGraph();break;
     case'cancel-selection':assigning=null;connecting=null;drawGraph();break;
-    case'cancel-generation':pending?.controller.abort();break;
+    case'cancel-generation':pending?.controller.abort();pending=null;drawGraph();break;
     case'locate':if(assigning||connecting){selectNode(id);centerNode(id);}else{selected=id;menu=null;drawGraph();centerNode(id);}break;
     case'focus':focusId=id;selected=id;menu=null;renderWorkspace();fitView();break;
     case'unfocus':focusId=null;renderWorkspace();fitView();break;

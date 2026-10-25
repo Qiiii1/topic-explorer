@@ -143,3 +143,59 @@
 .model-choice-row{display:flex;align-items:center;gap:7px}.model-choice-row input{flex:1;min-width:0}.model-choice-row>.button{font-size:10px;flex-shrink:0;border:1px solid #dfe6f2;background:#f2f6fc;color:#7293bf;min-height:44px;padding:7px 11px}
 @media(max-width:850px){.with-shelf .canvas-top-tools{top:85px}.with-shelf .view-tools{top:86px}.with-shelf .canvas-heading{top:145px}}
 @media(max-width:620px){.with-shelf .canvas-top-tools,.with-shelf .view-tools{top:79px}.with-shelf .canvas-heading{top:129px}.shelf-pull:focus-visible:after{top:52px;width:25px;height:33px}.field select{font-size:12px;padding:10px 11px}.model-choice-row>.button{font-size:9px;padding:7px 9px}}
+
+/* Saved directions hang over the dimmed canvas, without a drawer panel. */
+.shelf{background:transparent;border:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;pointer-events:none}
+.shelf.is-open{pointer-events:none}
+.shelf-heading{color:#fff;pointer-events:none}
+.shelf-heading h2,.shelf-heading h2 span{color:#fff;text-shadow:0 1px 8px #17213b35}
+.shelf-heading button,.saved-cards,.shelf-empty{pointer-events:auto}
+.shelf-heading .button{background:#fff;border:1px solid #e3e6ed}
+.shelf-rope{background:#e6e9efb3;box-shadow:0 1px 1px #17213b12}
+.shelf-empty{color:#fff}
+
+/* A single reserved card holds the place of the coming results. */
+.loading-card{position:absolute;width:244px;height:154px;z-index:3;padding:24px 25px 20px;border:1px solid #e0e5ef;border-radius:16px;background:#ffffffed;box-shadow:0 8px 26px #23334f0a;pointer-events:none;animation:loading-card-in 300ms ease-out}
+.loading-top{display:flex;align-items:center;gap:11px;margin-bottom:15px}
+.skeleton-orb,.skeleton-line{display:block;position:relative;overflow:hidden;background:#edf0f5}
+.skeleton-orb{width:25px;height:25px;border-radius:50%;flex:none}
+.skeleton-line{height:9px;border-radius:20px;width:100%}
+.skeleton-heading{width:72px;height:8px}
+.loading-lines{display:grid;gap:8px;padding-left:1px}
+.loading-lines .skeleton-line:last-child{width:68%}
+.skeleton-orb:after,.skeleton-line:after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 10%,#fff 46%,transparent 80%);transform:translateX(-100%);animation:skeleton-sweep 1.65s ease-in-out infinite}
+.loading-caption{display:flex;align-items:center;gap:5px;margin-top:17px;font-size:12px;color:#8091aa}
+.loading-word{background:linear-gradient(100deg,#a2aec0 20%,#3c5b88 45%,#a2aec0 70%);background-size:250% 100%;background-clip:text;-webkit-background-clip:text;color:transparent;animation:loading-text 2.3s linear infinite}
+.loading-count{margin-left:auto;font-size:9px;color:#a5adba}
+.loading-dots{display:flex;gap:3px}
+.loading-dots i{height:3px;width:3px;border-radius:50%;background:#a1b4cf;animation:loading-dot 1.2s ease-in-out infinite}
+.loading-dots i:nth-child(2){animation-delay:160ms}.loading-dots i:nth-child(3){animation-delay:320ms}
+.pending-connector{fill:none;stroke:#9eb5d4;stroke-width:1.5;stroke-dasharray:4 7;pointer-events:none;animation:pending-flow 1.3s linear infinite}
+@keyframes skeleton-sweep{to{transform:translateX(100%)}}
+@keyframes loading-text{to{background-position:-250% 0}}
+@keyframes loading-dot{0%,70%,100%{opacity:.3;transform:translateY(0)}35%{opacity:1;transform:translateY(-3px)}}
+@keyframes loading-card-in{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes pending-flow{to{stroke-dashoffset:-22}}
+
+/* The selected idea's complete ancestry has a visible direction and weight. */
+.edge-group.is-active .edge-line{stroke:#007aff;stroke-width:3.5;stroke-dasharray:none;vector-effect:non-scaling-stroke}
+.edge-halo{fill:none;stroke:#f5f5f7;stroke-width:9;vector-effect:non-scaling-stroke;pointer-events:none}
+.edge-flow{fill:none;stroke:#ffffffb3;stroke-width:1.3;stroke-dasharray:3 19;vector-effect:non-scaling-stroke;pointer-events:none;animation:path-flow 2s linear infinite}
+.edge-group.is-muted{opacity:.27;transition:opacity 180ms}
+.edge-group.is-muted:hover,.edge-group.is-muted:focus{opacity:1}
+.edge-group.is-active .edge-label rect{fill:#f6faff;stroke:#8abdff;stroke-width:1.2}
+.edge-group.is-active .edge-label text{fill:#286cbf;font-weight:600}
+.idea-card.is-upstream .card-surface{border-color:#88b9f8;box-shadow:0 0 0 2px #007aff12,0 7px 18px #23334f0a}
+.idea-card.is-upstream:after{content:"上游";position:absolute;left:14px;top:-14px;z-index:6;border:1px solid #c5dfff;border-radius:6px;background:#f5faff;color:#5487c0;font-size:9px;padding:2px 7px;box-shadow:0 2px 5px #007aff08;pointer-events:none}
+.idea-card.kind-root.is-upstream:after{content:"源头"}
+.idea-card.off-path{opacity:.74}
+.idea-card.off-path:hover,.idea-card.off-path:focus-within{opacity:1}
+.canvas-surface.is-dragging-card{cursor:grabbing}
+.canvas-surface.is-dragging-card .idea-card{cursor:grabbing;will-change:translate}
+.canvas-surface.is-dragging-card .idea-card.is-selected{z-index:30}
+.canvas-surface.is-dragging-card .idea-card .dimension-option{transform:translateY(calc(-13px + var(--fan-index)*3px)) rotate(calc(-3deg + var(--fan-index)*3deg))!important;pointer-events:none!important}
+.canvas-surface.is-dragging-card .idea-card .dimension-deck:before{pointer-events:none!important}
+.selection-notice,.generation-progress{pointer-events:none}
+.selection-notice .button,.generation-progress .button{pointer-events:auto}
+@keyframes path-flow{to{stroke-dashoffset:-44}}
+@media(prefers-reduced-motion:reduce){.loading-card,.skeleton-orb:after,.skeleton-line:after,.loading-word,.loading-dots i,.pending-connector,.edge-flow{animation:none!important}.loading-word{background:none;color:#8091aa}.edge-flow{display:none}}
