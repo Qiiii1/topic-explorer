@@ -132,6 +132,8 @@
 .collection-backdrop{position:absolute;inset:0;z-index:19;border:0;border-radius:0;background:#17213b66;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 300ms,visibility 0s linear 300ms}
 .collection-backdrop.is-open{opacity:1;visibility:visible;pointer-events:auto;transition:opacity 300ms,visibility 0s}
 .collection-backdrop:hover{filter:none!important}
+.shelf-pull:focus-visible{outline:none}
+.shelf-pull:focus-visible:after{content:"";position:absolute;left:50%;top:61px;width:27px;height:36px;border:2px solid #007aff80;border-radius:50%;transform:translateX(-50%);pointer-events:none}
 .with-shelf .canvas-top-tools{top:88px}.with-shelf .view-tools{top:89px}.with-shelf .canvas-heading{top:148px}
 .shelf-heading{min-height:32px}.shelf-heading p,.saved-flip-hint,.direction-front-foot,.direction-content>.detail-footnote{display:none}
 .shelf-rope{top:68px}.saved-cards{padding-top:22px}.shelf-empty{font-size:12px;color:#a0a1ad;margin-top:37px}
@@ -140,4 +142,4 @@
 .field select{width:100%;border:1px solid #e3e3eb;border-radius:10px;padding:11px 13px;background:#fff;font-size:12px;color:#5b5b69;line-height:1.9}
 .model-choice-row{display:flex;align-items:center;gap:7px}.model-choice-row input{flex:1;min-width:0}.model-choice-row>.button{font-size:10px;flex-shrink:0;border:1px solid #dfe6f2;background:#f2f6fc;color:#7293bf;min-height:44px;padding:7px 11px}
 @media(max-width:850px){.with-shelf .canvas-top-tools{top:85px}.with-shelf .view-tools{top:86px}.with-shelf .canvas-heading{top:145px}}
-@media(max-width:620px){.with-shelf .canvas-top-tools,.with-shelf .view-tools{top:79px}.with-shelf .canvas-heading{top:129px}.field select{font-size:12px;padding:10px 11px}.model-choice-row>.button{font-size:9px;padding:7px 9px}}
+@media(max-width:620px){.with-shelf .canvas-top-tools,.with-shelf .view-tools{top:79px}.with-shelf .canvas-heading{top:129px}.shelf-pull:focus-visible:after{top:52px;width:25px;height:33px}.field select{font-size:12px;padding:10px 11px}.model-choice-row>.button{font-size:9px;padding:7px 9px}}

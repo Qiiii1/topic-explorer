@@ -1,10 +1,23 @@
 # 有点想法 · 网页交互原型
 
+[![Checks](https://github.com/Qiiii1/topic-explorer/actions/workflows/ci.yml/badge.svg)](https://github.com/Qiiii1/topic-explorer/actions/workflows/ci.yml)
+
 从一个粗想法出发，沿场景、痛点、人群逐步细化；每个节点保留上层关联与理由。基于 Figma 低保真页 `352:2`，采用浅色 Apple 风格界面。
+
+![选题探索画布](https://raw.githubusercontent.com/Qiiii1/topic-explorer/main/reference/v3-cards.png)
 
 ## 运行
 
-需要 Node.js 22 或更新版本，无需安装依赖。在此目录执行：
+需要 Node.js 22 或更新版本，推荐使用 `.nvmrc` 指定的 Node 22。项目没有第三方运行依赖。
+
+```sh
+git clone https://github.com/Qiiii1/topic-explorer.git
+cd topic-explorer
+npm ci
+npm start
+```
+
+已经下载或解压代码时，在项目目录执行即可：
 
 ```sh
 npm start
@@ -16,9 +29,24 @@ npm start
 
 点击右上角「连接 AI」，填写兼容 Chat Completions 的服务基础地址、模型名称和 API Key。例如填写服务商提供的 `https://…/v1` 基础地址；请求会发送到 `/chat/completions`。服务需要支持 JSON 输出格式。
 
-密钥仅保留在本地 Node 服务进程内存，关闭后清除；不会写入项目文件、分享链接或浏览器本地存储。当前配置由本机打开的原型页面共用。首页示例是静态预置内容，后续生成仍需连接真实模型。当前分支、项目背景和上游路径会发送到你配置的模型服务。
+通过页面填写的密钥仅保留在本地 Node 服务进程内存，关闭后清除；不会写入项目文件、分享链接或浏览器本地存储。当前配置由本机打开的原型页面共用。首页示例是静态预置内容，后续生成仍需连接真实模型。当前分支、项目背景和上游路径会发送到你配置的模型服务。
 
-也可以用 `TOPIC_AI_BASE_URL`、`TOPIC_AI_MODEL`、`TOPIC_AI_API_KEY` 环境变量配置。
+也可以使用环境变量，或复制 `.env.example` 为 `.env`，填入服务商提供的模型 ID 和密钥，再运行：
+
+```sh
+npm run start:env
+```
+
+| 变量 | 用途 | 默认值 |
+| --- | --- | --- |
+| `PORT` | 本地网页端口 | `4178` |
+| `TOPIC_AI_BASE_URL` | 模型 API 基础地址 | `https://api.deepseek.com` |
+| `TOPIC_AI_MODEL` | 模型 ID，按服务商当前模型列表填写 | 空 |
+| `TOPIC_AI_API_KEY` | 模型服务密钥 | 空 |
+
+模型和密钥都填入后才会在启动时加载模型配置；留空可在网页中配置。`npm start` 使用系统环境变量，`npm run start:env` 额外读取本机 `.env`。`.env` 已被 Git 忽略，它包含手动保存的本地配置，请自行保管；仓库只提交不含密钥的示例文件。
+
+服务固定监听本机 `127.0.0.1`。临时修改端口可以用 `npm start -- --port 4180`。该原型需要 Node 服务，不能只把 `app/` 放到 GitHub Pages 运行 AI 功能。
 
 ## 可以体验
 
@@ -36,11 +64,14 @@ npm start
 ## 检查
 
 ```sh
-npm run check
-npm test
+npm run validate
 ```
 
-测试覆盖独立卡片归属、循环防护、双来源路径、收藏快照、分支删除，以及本地模拟上游的真实请求协议、3/6/10 数量、接口配置清除和密钥隔离。外部模型需用自己的服务配置后验证。
+测试覆盖独立卡片归属、循环防护、双来源路径、收藏快照、分支删除，以及请求转发格式、3/6/10 数量、接口配置清除、模型名称校验和密钥隔离。接口检查直接使用 Node 请求流与模拟响应，不监听测试端口、不调用外部模型。
+
+推送到 `main` 或提交 Pull Request 后，[GitHub Actions](https://github.com/Qiiii1/topic-explorer/actions) 会在 Node 22、24 上检查语法、运行测试并检查打包内容，无需配置模型密钥。工作流采用 [GitHub 官方 Node.js 检查方式](https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs)。
+
+开发时可以运行 `npm run dev`，服务端文件修改后会自动重启；进程内存中的模型配置也会清除。生成可分发的源码包可运行 `npm pack`；打包范围只包含应用、服务、测试、说明、许可证及配置示例，排除本地密钥和参考截图。该命令不发布到 npm。
 
 参考截图及视觉说明在 `reference/`。图标使用 Figma 原稿导出的控件和 [Tabler Icons](https://tabler.io/icons)（MIT）；源文件随原型保留。
 

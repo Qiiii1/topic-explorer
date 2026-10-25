@@ -1,3 +1,14 @@
 .DS_Store
+._*
 node_modules/
 *.log
+
+# Local credentials and generated files
+.env
+.env.*
+!.env.example
+.local/
+coverage/
+dist/
+*.tgz
+*.zip

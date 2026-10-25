@@ -1,12 +1,32 @@
 {
   "name": "topic-explorer-web-prototype",
   "version": "0.1.0",
+  "description": "有点想法：保留探索路径与细化理由的选题画布网页原型",
   "private": true,
   "type": "module",
+  "author": "Qiiii1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Qiiii1/topic-explorer.git"
+  },
+  "homepage": "https://github.com/Qiiii1/topic-explorer#readme",
+  "bugs": {
+    "url": "https://github.com/Qiiii1/topic-explorer/issues"
+  },
+  "files": [
+    "app/",
+    "server.mjs",
+    "test/",
+    ".env.example",
+    ".nvmrc"
+  ],
   "scripts": {
     "start": "node server.mjs",
+    "start:env": "node --env-file=.env server.mjs",
+    "dev": "node --watch server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check app/app.js && node --check app/domain.js && node --check app/demo.js"
+    "check": "node --check server.mjs && node --check app/app.js && node --check app/domain.js && node --check app/demo.js",
+    "validate": "npm run check && npm test"
   },
   "engines": {
     "node": ">=22"
