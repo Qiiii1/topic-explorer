@@ -1,4 +1,4 @@
-import { KINDS, CARD, uid, clone, createProject, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, appendManual, mergeNodes, assignParent, favoriteNode, removeBranch, visibleNodes, boundsOf, validateProject, toMarkdown, surroundingPositions, repelCards } from './domain.js';
+import { KINDS, CARD, uid, clone, createProject, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, appendManual, mergeNodes, assignParent, favoriteNode, removeBranch, visibleNodes, boundsOf, validateProject, toMarkdown, planNearbySpace, branchPositions, moveBranch, arrangeByMainline, canCombine, repelCards } from './domain.js';
 import { demoGenerate } from './demo.js';
 import { createBrowserModelClient } from './browser-model.js';
 
@@ -18,7 +18,7 @@ const STORAGE='topic-explorer-projects-v1';
 let projects=[];try{projects=JSON.parse(localStorage.getItem(STORAGE)||'[]').flatMap(value=>{try{return [validateProject(value)];}catch{return [];}});}catch{projects=[];}
 let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,tool='select',assigning=null,connecting=null,pending=null,search='',query='',manualDraft='',manualKind='scene',modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},history=[],future=[],savedSelection=new Set(),drag=null,spaceHeld=false;
 let lastFocus=null,saveTimer=null,queuedAfterModel=null,fanPinned=null,cordDrag=null,suppressCordClick=false;
-let cardMotion=null;
+let cardMotion=null,layoutAnimation=null;
 const app=$('#app'),overlays=$('#overlays');
 
 function persist(){
@@ -59,7 +59,7 @@ function renderWorkspace(){
     <section id="surface" class="canvas-surface ${tool==='hand'?'hand-tool':''}" aria-label="选题探索画布" tabindex="0"><div id="world" class="canvas-world"><svg id="edges" class="edges" width="1" height="1"></svg><div id="nodes"></div><svg id="link-preview" class="link-preview" width="1" height="1"></svg></div><div class="canvas-empty" id="canvas-empty"></div></section>
     <div class="canvas-top-tools glass"><div class="segmented tool-switch"><button data-action="tool-select" class="${tool==='select'?'selected':''}" aria-pressed="${tool==='select'}">选择</button><button data-action="tool-hand" class="${tool==='hand'?'selected':''}" aria-pressed="${tool==='hand'}">平移</button></div><span class="tool-separator"></span>${iconButton('撤销，Command Z','undo','undo',{disabled:!history.length})}${iconButton('重做，Command Shift Z','redo','undo',{class:'redo-icon',disabled:!future.length})}<span class="tool-separator"></span><button class="zoom-button" data-action="zoom-out" aria-label="缩小">−</button><button id="zoom-value" class="zoom-value" data-action="fit" title="适应画面">100%</button><button class="zoom-button" data-action="zoom-in" aria-label="放大">+</button></div>
     <div class="canvas-heading"><span class="eyebrow">正在探索</span><span id="node-count"></span></div>
-    <div class="view-tools">${button(showOutline?'收起路径':'探索路径','outline',{class:showOutline?'active':''})}${focusId?button('退出聚焦','unfocus',{class:'active'}):''}${p.nodes.some(n=>n.hidden)?button(showHidden?'隐藏已收起':'显示已收起','toggle-hidden',{class:showHidden?'active':''}):''}</div>
+    <div class="view-tools">${button('一键整理','arrange',{icon:'layers',extra:'title="按照主线整理画布，可撤销"'})}${button(showOutline?'收起路径':'探索路径','outline',{class:showOutline?'active':''})}${focusId?button('退出聚焦','unfocus',{class:'active'}):''}${p.nodes.some(n=>n.hidden)?button(showHidden?'隐藏已收起':'显示已收起','toggle-hidden',{class:showHidden?'active':''}):''}</div>
     <aside id="outline" class="outline glass ${showOutline?'is-open':''}" aria-label="探索路径"></aside>
     <aside id="node-panel" class="node-panel glass" aria-label="当前卡片操作" hidden></aside>
     <div id="selection-notice" class="selection-notice glass" hidden></div>
@@ -83,17 +83,19 @@ function curve(a,b){
   if(Math.abs(bx-ax)>120){const sign=bx>=ax?1:-1;const x1=ax+sign*CARD.width/2,x2=bx-sign*CARD.width/2,d=Math.max(90,Math.abs(x2-x1)*0.5);return {d:`M ${x1} ${ay} C ${x1+sign*d} ${ay},${x2-sign*d} ${by},${x2} ${by}`,mx:(x1+x2)/2,my:(ay+by)/2};}
   const sign=by>=ay?1:-1,y1=ay+sign*CARD.height/2,y2=by-sign*CARD.height/2,d=Math.max(70,Math.abs(y2-y1)*0.5);return {d:`M ${ax} ${y1} C ${ax} ${y1+sign*d},${bx} ${y2-sign*d},${bx} ${y2}`,mx:(ax+bx)/2,my:(y1+y2)/2};
 }
+function graphNodes(){return visibleNodes(p,{focusId,showHidden}).map(n=>pending?.layout?.moves.has(n.id)?{...n,...pending.layout.moves.get(n.id)}:n);}
 function drawGraph(){
   if(screen!=='workspace'||!p)return;
-  const nodes=visibleNodes(p,{focusId,showHidden}),ids=new Set(nodes.map(n=>n.id)),ancestors=new Set(ancestorsOf(p,current().id).map(n=>n.id));
+  stopLayoutAnimation();
+  const nodes=graphNodes(),nodeIndex=new Map(nodes.map(n=>[n.id,n])),ids=new Set(nodeIndex.keys()),ancestors=new Set(ancestorsOf(p,current().id).map(n=>n.id));
   $('#nodes').innerHTML=nodes.map(n=>{
     const active=n.id===selected,saved=p.favorites.some(f=>f.nodeId===n.id),match=!search||`${n.title} ${n.description}`.toLowerCase().includes(search.toLowerCase());
-    const valid=connecting&&connecting!==n.id&&p.nodes.find(v=>v.id===connecting)?.kind===n.kind;
-    return `<article class="idea-card kind-${n.kind} ${active?'is-selected':''} ${ancestors.has(n.id)&&!active?'is-upstream':''} ${ancestors.size>1&&!ancestors.has(n.id)?'off-path':''} ${n.hidden?'is-hidden':''} ${!match?'search-dim':''} ${connecting?'is-connecting':''} ${valid?'valid-target':''} ${assigning&&descendantsOf(p,assigning).has(n.id)?'invalid-parent':''} ${fanPinned===n.id?'fan-pinned':''} ${menu==='node'&&active?'menu-open':''}" style="left:${n.x}px;top:${n.y}px" data-x="${n.x}" data-y="${n.y}" data-node="${n.id}" role="button" tabindex="0" aria-label="${KINDS[n.kind].label}：${esc(n.title)}${ancestors.has(n.id)&&!active?'，当前方向的上游':''}" aria-pressed="${active}">
+    const valid=connecting&&canCombine(p.nodes.find(v=>v.id===connecting),n);
+    return `<article class="idea-card kind-${n.kind} ${active?'is-selected':''} ${ancestors.has(n.id)&&!active?'is-upstream':''} ${ancestors.size>1&&!ancestors.has(n.id)?'off-path':''} ${n.hidden?'is-hidden':''} ${!match?'search-dim':''} ${connecting?'is-connecting':''} ${connecting===n.id?'connection-source':''} ${valid?'valid-target':''} ${assigning&&descendantsOf(p,assigning).has(n.id)?'invalid-parent':''} ${fanPinned===n.id?'fan-pinned':''} ${menu==='node'&&active?'menu-open':''}" style="left:${n.x}px;top:${n.y}px" data-x="${n.x}" data-y="${n.y}" data-node="${n.id}" role="button" tabindex="0" aria-label="${KINDS[n.kind].label}：${esc(n.title)}${ancestors.has(n.id)&&!active?'，当前方向的上游':''}" aria-pressed="${active}">${valid?'<span class="connection-target-label">可组合</span>':''}
       <div class="dimension-deck" role="group" aria-label="为${esc(n.title)}选择细化维度">${['people','pain','scene'].map((kind,i)=>`<button class="dimension-option type-${kind}" style="--fan-index:${i}" data-action="expand" data-kind="${kind}" data-id="${n.id}" aria-label="从${KINDS[kind].label}细化：${esc(n.title)}"><span class="dimension-dot"></span><strong>${KINDS[kind].label}</strong><span class="dimension-count">${p.generationCount} 张</span>${icon('arrow')}</button>`).join('')}</div><div class="card-surface"><div class="card-top">${n.kind==='root'?'<span class="type-chip type-root"><span></span>主选题</span>':chip(n.kind)}${n.merged?'<span class="merge-tag" title="来自两个想法的交集">∩</span>':''}</div><h3>${esc(n.title)}</h3><button class="card-more" data-action="node-menu" data-id="${n.id}" aria-label="卡片操作：${esc(n.title)}">···</button></div><button class="node-expand" data-action="expand-same" data-id="${n.id}" aria-label="${n.kind==='root'?'展开选题维度':'继续细化'}：${esc(n.title)}">${icon('plus')}</button>${n.kind!=='root'?`<button class="card-star ${saved?'is-saved':''}" data-action="favorite" data-id="${n.id}" aria-label="${saved?'取消收藏':'收藏完整路径'}：${esc(n.title)}" aria-pressed="${saved}">${icon('star')}</button>`:''}<span class="selection-corner" aria-hidden="true">✓</span>${n.kind!=='root'?`<button class="connection-handle handle-right" data-handle="${n.id}" aria-label="拖动加号连接同类卡片：${esc(n.title)}" title="拖出连线，与同类卡片组合"><span aria-hidden="true">+</span></button>`:''}</article>`;
   }).join('')+pendingCardMarkup();
   $('#edges').innerHTML='<defs><marker id="path-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#007aff"/></marker></defs>'+p.edges.filter(e=>ids.has(e.from)&&ids.has(e.to)).sort((a,b)=>Number(ancestors.has(a.from)&&ancestors.has(a.to))-Number(ancestors.has(b.from)&&ancestors.has(b.to))).map(e=>{
-    const a=p.nodes.find(n=>n.id===e.from),b=p.nodes.find(n=>n.id===e.to),c=curve(a,b),active=ancestors.has(e.from)&&ancestors.has(e.to),label=e.merged?'共同点 / 交集':e.relation;
+    const a=nodeIndex.get(e.from),b=nodeIndex.get(e.to),c=curve(a,b),active=ancestors.has(e.from)&&ancestors.has(e.to),label=e.merged?'共同点 / 交集':e.relation;
     return `<g class="edge-group ${active?'is-active':''} ${ancestors.size>1&&!active?'is-muted':''} ${e.merged?'merged-edge':''}" data-edge="${e.id}" role="button" tabindex="0" aria-label="查看关联：${esc(a.title)}到${esc(b.title)}">${active?`<path class="edge-halo" d="${c.d}"></path>`:''}<path class="edge-line" d="${c.d}" ${active?'marker-end="url(#path-arrow)"':''}></path>${active?`<path class="edge-flow" d="${c.d}"></path>`:''}<path class="edge-hit" d="${c.d}"></path><g class="edge-label" transform="translate(${c.mx},${c.my})"><rect x="-51" y="-13" width="102" height="26" rx="13"></rect><text y="4" text-anchor="middle">${esc(label)}</text></g></g>`;
   }).join('')+pendingEdgesMarkup();
   updateView();updatePath();drawShelf();drawOutline();drawNodePanel();updateNotices();
@@ -118,6 +120,27 @@ function revealCards(nodes){
   const world=$('#world'),before=getComputedStyle(world).transform;
   fitView(nodes,true);
   world.animate([{transform:before},{transform:world.style.transform}],{duration:motionDuration(500),easing:'cubic-bezier(.2,.8,.2,1)'});
+}
+function stopLayoutAnimation(){
+  if(!layoutAnimation)return;
+  cancelAnimationFrame(layoutAnimation.frame);layoutAnimation=null;
+  $$('.idea-card').forEach(el=>el.style.removeProperty('translate'));
+  $('#surface')?.classList.remove('is-arranging');
+  if(p&&$('#edges'))updateEdgePositions();
+}
+function animateLayout(before){
+  stopLayoutAnimation();
+  if(!motionDuration(420))return;
+  const origins=new Map(before.map(n=>[n.id,n])),targets=graphNodes().map(n=>({...n}));
+  const state={start:performance.now(),projectId:p.id};layoutAnimation=state;
+  $('#surface').classList.add('is-arranging');
+  const tick=now=>{
+    if(layoutAnimation!==state||p?.id!==state.projectId)return;
+    const t=Math.min(1,(now-state.start)/420),ease=1-(1-t)**3;
+    paintCardPositions(targets.map(n=>{const from=origins.get(n.id)||n;return {...n,x:from.x+(n.x-from.x)*ease,y:from.y+(n.y-from.y)*ease};}));
+    if(t<1)state.frame=requestAnimationFrame(tick);else stopLayoutAnimation();
+  };
+  tick(state.start);
 }
 function animateCreated(nodes,anchor){
   nodes.forEach((n,i)=>{
@@ -194,35 +217,38 @@ async function generate(parentId,kind){
   if(model.mode!=='live'){queuedAfterModel=()=>generate(parentId,kind);openModal('model');return;}
   const node=p.nodes.find(n=>n.id===parentId);if(!node)return;
   finishCardMotion();
-  const projectId=p.id,count=p.generationCount,controller=new AbortController(),positions=surroundingPositions(p.nodes,node,count);
-  pending={controller,operation:'expand',kind,count,positions,sourceIds:[parentId],label:`沿着“${node.title.slice(0,18)}”生成 ${count} 张${KINDS[kind].label}…`};menu=null;fanPinned=null;selected=parentId;drawGraph();revealCards([...ancestorsOf(p,parentId),...positions]);
+  const before=clone(p.nodes),protectedIds=new Set(ancestorsOf(p,parentId).map(n=>n.id));
+  const projectId=p.id,count=p.generationCount,controller=new AbortController(),layout=planNearbySpace(p.nodes,node,count,protectedIds),positions=layout.positions;
+  pending={controller,operation:'expand',kind,count,positions,layout,sourceIds:[parentId],label:`沿着“${node.title.slice(0,18)}”生成 ${count} 张${KINDS[kind].label}…`};menu=null;fanPinned=null;selected=parentId;drawGraph();animateLayout(before);revealCards([node,...positions]);
   try{
     const result=await api('/generate',{operation:'expand',project:{title:p.title,description:p.description,context:p.context},node,ancestors:ancestorsOf(p,node.id),targetKind:kind,count,exclude:p.nodes.filter(n=>n.parentIds.includes(node.id)&&n.kind===kind).map(n=>n.title)},controller.signal);
     if(controller.signal.aborted||p?.id!==projectId)return;
     if(!result.nodes.length)throw new Error(result.message||'模型没有给出可用候选，可以调整条件后重试。');
     if(!p.nodes.some(n=>n.id===parentId))throw new Error('来源卡片已被移除，这次结果没有加入画布。');
-    pending=null;let created;commit(()=>created=appendGenerated(p,parentId,kind,result.nodes,'live',positions));selected=created[0].id;menu=null;drawGraph();revealCards([...ancestorsOf(p,parentId),...created]);animateCreated(created,node);toast(`已生成 ${created.length} 个${KINDS[kind].label}候选，每个都保留了上层关联。`);
-  }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller){pending=null;drawGraph();}updateNotices();}
+    pending=null;let created;commit(()=>created=appendGenerated(p,parentId,kind,result.nodes,'live',positions));selected=created[0].id;menu=null;drawGraph();revealCards([node,...created]);animateCreated(created,node);toast(`已生成 ${created.length} 个${KINDS[kind].label}候选，每个都保留了上层关联。`);
+  }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller)clearPending();updateNotices();}
 }
 async function combine(aId,bId){
   if(pending)return toast('请等待这次生成完成，或先取消。');
   const a=p.nodes.find(n=>n.id===aId),b=p.nodes.find(n=>n.id===bId);
-  if(!a||!b||a.id===b.id||a.kind!==b.kind||a.kind==='root')return toast('只能关联两张不同的同类卡片。','error');
+  if(!canCombine(a,b))return toast('只能关联两张不同的同类卡片。','error');
   connecting=null;assigning=null;
   if(model.mode!=='live'){queuedAfterModel=()=>combine(aId,bId);openModal('model');drawGraph();return;}
   finishCardMotion();
-  const projectId=p.id,controller=new AbortController(),positions=surroundingPositions(p.nodes,{x:(a.x+b.x)/2,y:(a.y+b.y)/2},1);
-  pending={controller,operation:'merge',kind:a.kind,count:1,positions,sourceIds:[aId,bId],label:'正在提取两张卡片的共同点或交集…'};drawGraph();revealCards([...ancestorsOf(p,aId),...ancestorsOf(p,bId),...positions]);
+  const before=clone(p.nodes),protectedIds=new Set([...ancestorsOf(p,aId),...ancestorsOf(p,bId)].map(n=>n.id));
+  const projectId=p.id,controller=new AbortController(),layout=planNearbySpace(p.nodes,{x:(a.x+b.x)/2,y:(a.y+b.y)/2},1,protectedIds),positions=layout.positions;
+  pending={controller,operation:'merge',kind:a.kind,count:1,positions,layout,sourceIds:[aId,bId],label:'正在提取两张卡片的共同点或交集…'};drawGraph();animateLayout(before);revealCards([a,b,...positions]);
   try{
     const result=await api('/generate',{operation:'merge',project:{title:p.title,description:p.description,context:p.context},nodes:[a,b],ancestors:[ancestorsOf(p,aId),ancestorsOf(p,bId)]},controller.signal);
     if(controller.signal.aborted||p?.id!==projectId)return;
     if(!result.nodes.length){toast(result.message||'没有找到合理交集，原卡片已保留。');return;}
     if(![aId,bId].every(id=>p.nodes.some(n=>n.id===id)))throw new Error('来源卡片已被移除，这次结果没有加入画布。');
     pending=null;let node;commit(()=>node=mergeNodes(p,aId,bId,result.nodes[0],'live',positions[0]));selected=node.id;drawGraph();revealCards(ancestorsOf(p,node.id));animateCreated([node],positions[0]);toast('已生成交集卡片，两个来源均已保留。');
-  }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller){pending=null;drawGraph();}updateNotices();}
+  }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller)clearPending();updateNotices();}
 }
+function clearPending(){const before=graphNodes().map(n=>({...n}));pending=null;drawGraph();animateLayout(before);}
 function addManualCard(e){
-  e?.preventDefault();if(!manualDraft.trim())return $('#manual-text').focus();
+  e?.preventDefault();if(pending)return toast('正在为新卡片留出空间，生成完成后即可添加。');if(!manualDraft.trim())return $('#manual-text').focus();
   const r=$('#surface').getBoundingClientRect(),position={x:(r.width/2-view.x)/view.scale-CARD.width/2,y:(r.height/2-view.y)/view.scale-CARD.height/2};let n;
   commit(()=>n=appendManual(p,null,manualKind,manualDraft.trim(),'',position));selected=n.id;manualDraft='';$('#manual-text').value='';drawGraph();centerNode(n.id);menu='node';drawNodePanel();toast('已添加独立卡片，可在卡片操作中“指定上层”。');
 }
@@ -235,7 +261,7 @@ function selectNode(id){
 }
 function paintCardPositions(nodes){
   for(const n of nodes){const el=$(`[data-node="${n.id}"]`);if(el)el.style.translate=`${n.x-Number(el.dataset.x)}px ${n.y-Number(el.dataset.y)}px`;}
-  updateEdgePositions();
+  updateEdgePositions(nodes);
 }
 function finishCardMotion(record=true){
   const motion=cardMotion;if(!motion)return;
@@ -244,12 +270,12 @@ function finishCardMotion(record=true){
   $('#surface')?.classList.remove('is-dragging-card');
   if(p?.id===motion.projectId&&record){history.push(motion.before);if(history.length>60)history.shift();future=[];persist();}
 }
-function startCardMotion(before,id){
-  cardMotion={before,fixedId:id,projectId:p.id,nodes:visibleNodes(p,{focusId,showHidden}),activeIds:new Set([id]),released:false,settleFrames:0};
+function startCardMotion(before,id,fixedIds){
+  cardMotion={before,fixedId:id,fixedIds,projectId:p.id,nodes:visibleNodes(p,{focusId,showHidden}),activeIds:new Set(fixedIds),released:false,settleFrames:0};
   $('#surface').classList.add('is-dragging-card');
   function tick(){
     const motion=cardMotion;if(!motion||p?.id!==motion.projectId)return;
-    const moved=repelCards(motion.nodes,motion.fixedId,{activeIds:motion.activeIds});
+    const moved=repelCards(motion.nodes,motion.fixedId,{activeIds:motion.activeIds,fixedIds:motion.fixedIds});
     paintCardPositions(motion.nodes);
     if(motion.released&&(!moved.size||++motion.settleFrames>100)){finishCardMotion();drawGraph();return;}
     motion.frame=requestAnimationFrame(tick);
@@ -262,10 +288,12 @@ function bindCanvas(){
   surface.addEventListener('pointerdown',event=>{
     if(event.button!==0&&event.button!==1)return;
     const handle=event.target.closest('[data-handle]'),nodeEl=event.target.closest('[data-node]');
+    if(pending&&(handle||nodeEl)&&!event.target.closest('button[data-action]'))return;
     if(handle){finishCardMotion();event.preventDefault();event.stopPropagation();connecting=handle.dataset.handle;assigning=null;fanPinned=null;menu=null;drag={type:'link',id:connecting,startX:event.clientX,startY:event.clientY,moved:false};surface.setPointerCapture(event.pointerId);drawGraph();return;}
     if(event.target.closest('button,[data-edge]')&&!spaceHeld&&tool!=='hand')return;
     finishCardMotion();
-    if(nodeEl&&!spaceHeld&&tool!=='hand'&&event.button!==1){const n=p.nodes.find(v=>v.id===nodeEl.dataset.node);drag={type:'node',id:n.id,startX:event.clientX,startY:event.clientY,x:n.x,y:n.y,moved:false,before:clone(p)};}
+    stopLayoutAnimation();
+    if(nodeEl&&!spaceHeld&&tool!=='hand'&&event.button!==1){const n=p.nodes.find(v=>v.id===nodeEl.dataset.node);drag={type:'node',id:n.id,startX:event.clientX,startY:event.clientY,origins:branchPositions(p,n.id),moved:false,before:clone(p)};}
     else{drag={type:'pan',startX:event.clientX,startY:event.clientY,x:view.x,y:view.y,moved:false};surface.classList.add('is-panning');}
     event.preventDefault();
     surface.setPointerCapture(event.pointerId);
@@ -281,12 +309,12 @@ document.addEventListener('pointermove',event=>{
   if(!drag)return;const dx=event.clientX-drag.startX,dy=event.clientY-drag.startY;if(Math.hypot(dx,dy)>4)drag.moved=true;
   if(drag.type==='pan'){view.x=drag.x+dx;view.y=drag.y+dy;updateView();}
   if(drag.type==='node'&&drag.moved){
-    if(!cardMotion){selected=drag.id;fanPinned=null;menu=null;drawGraph();startCardMotion(drag.before,drag.id);}
-    const n=p.nodes.find(v=>v.id===drag.id);n.x=drag.x+dx/view.scale;n.y=drag.y+dy/view.scale;paintCardPositions([n]);
+    if(!cardMotion){selected=drag.id;fanPinned=null;menu=null;drawGraph();startCardMotion(drag.before,drag.id,new Set(drag.origins.keys()));}
+    moveBranch(p,drag.origins,dx/view.scale,dy/view.scale);paintCardPositions(cardMotion.nodes);
   }
   if(drag.type==='link'){
     const n=p.nodes.find(v=>v.id===drag.id),rect=$('#surface').getBoundingClientRect(),x=(event.clientX-rect.left-view.x)/view.scale,y=(event.clientY-rect.top-view.y)/view.scale;
-    const target=document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-node]'),candidate=p.nodes.find(v=>v.id===target?.dataset.node),valid=candidate&&candidate.id!==n.id&&candidate.kind===n.kind;
+    const target=document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-node]'),candidate=p.nodes.find(v=>v.id===target?.dataset.node),valid=canCombine(n,candidate);
     $$('.idea-card.drop-target').forEach(el=>el.classList.remove('drop-target'));if(valid)target.classList.add('drop-target');
     const startX=n.x+CARD.width+28;
     $('#link-preview').innerHTML=`<path d="M ${startX} ${n.y+CARD.height/2} C ${startX+70} ${n.y+CARD.height/2},${x-70} ${y},${x} ${y}" fill="none" stroke="${candidate&&!valid?'#c88c83':'#007AFF'}" stroke-width="2.5"></path><circle cx="${x}" cy="${y}" r="4" fill="#007AFF"></circle>`;
@@ -297,15 +325,16 @@ document.addEventListener('pointerup',event=>{
   if(!drag)return;const old=drag;drag=null;$('#surface')?.classList.remove('is-panning');
   if(old.type==='node'){
     if(old.moved&&cardMotion){
-      if(matchMedia('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<120;i++)if(!repelCards(cardMotion.nodes,cardMotion.fixedId,{activeIds:cardMotion.activeIds}).size)break;paintCardPositions(cardMotion.nodes);finishCardMotion();drawGraph();}
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<120;i++)if(!repelCards(cardMotion.nodes,cardMotion.fixedId,{activeIds:cardMotion.activeIds,fixedIds:cardMotion.fixedIds}).size)break;paintCardPositions(cardMotion.nodes);finishCardMotion();drawGraph();}
       else cardMotion.released=true;
     }else selectNode(old.id);
   }
   if(old.type==='pan'&&!old.moved){if(!event.target.closest('[data-node],[data-edge]')){menu=null;fanPinned=null;$$('.fan-pinned').forEach(el=>el.classList.remove('fan-pinned'));drawNodePanel();}}
   if(old.type==='link'){$('#link-preview').innerHTML='';const target=document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-node]');if(old.moved){connecting=null;drawGraph();if(target&&target.dataset.node!==old.id)combine(old.id,target.dataset.node);}else{connecting=old.id;drawGraph();}}
 });
-function updateEdgePositions(){
+function updateEdgePositions(positions=graphNodes()){
   const edgeIndex=new Map(p.edges.map(e=>[e.id,e])),nodeIndex=new Map(p.nodes.map(n=>[n.id,n]));
+  for(const n of positions)nodeIndex.set(n.id,n);
   for(const group of $$('.edge-group')){const edge=edgeIndex.get(group.dataset.edge),a=nodeIndex.get(edge.from),b=nodeIndex.get(edge.to),c=curve(a,b);$$('path',group).forEach(path=>path.setAttribute('d',c.d));$('.edge-label',group).setAttribute('transform',`translate(${c.mx},${c.my})`);}
   const previews=$$('.pending-connector');if(pending?.positions)previews.forEach((el,i)=>{const source=p.nodes.find(n=>n.id===pending.sourceIds[i]);if(source)el.setAttribute('d',curve(source,pending.positions[0]).d);});
 }
@@ -317,6 +346,8 @@ document.addEventListener('click',event=>{
 document.addEventListener('change',event=>{if(event.target.matches('[data-saved-check]')){const id=event.target.dataset.savedCheck;event.target.checked?savedSelection.add(id):savedSelection.delete(id);drawShelf();}});
 function dispatch(action,el){
   finishCardMotion();
+  if(pending&&['arrange','undo','redo','assign','count'].includes(action))return toast('正在为新卡片留出空间，生成完成后即可调整布局。');
+  stopLayoutAnimation();
   const id=el?.dataset.id;
   try{switch(action){
     case'home':pending?.controller.abort();pending=null;persist();screen='home';modal=null;overlays.innerHTML='';render();break;
@@ -333,6 +364,7 @@ function dispatch(action,el){
     case'tool-select':tool='select';renderWorkspace();break;
     case'tool-hand':tool='hand';renderWorkspace();break;
     case'fit':fitView(null,true);break;
+    case'arrange':{const before=clone(p.nodes);commit(()=>arrangeByMainline(p));menu=null;fanPinned=null;connecting=null;assigning=null;drawGraph();animateLayout(before);revealCards(visibleNodes(p,{focusId,showHidden}));toast('已按主线整理，可撤销恢复原布局。');break;}
     case'zoom-in':zoomBy(1.16);break;
     case'zoom-out':zoomBy(1/1.16);break;
     case'undo':if(history.length){future.push(clone(p));p=history.pop();if(!p.nodes.some(n=>n.id===selected))selected=rootOf(p).id;if(!p.nodes.some(n=>n.id===focusId))focusId=null;assigning=null;connecting=null;persist();renderWorkspace();toast('已撤销');}break;
@@ -348,7 +380,7 @@ function dispatch(action,el){
     case'assign':assigning=id;connecting=null;menu=null;drawGraph();break;
     case'connect':connecting=id;assigning=null;menu=null;drawGraph();break;
     case'cancel-selection':assigning=null;connecting=null;drawGraph();break;
-    case'cancel-generation':pending?.controller.abort();pending=null;drawGraph();break;
+    case'cancel-generation':pending?.controller.abort();clearPending();break;
     case'locate':if(assigning||connecting){selectNode(id);centerNode(id);}else{selected=id;menu=null;drawGraph();centerNode(id);}break;
     case'focus':focusId=id;selected=id;menu=null;renderWorkspace();fitView();break;
     case'unfocus':focusId=null;renderWorkspace();fitView();break;

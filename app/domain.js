@@ -46,25 +46,89 @@ function freePosition(project, x, y) {
   while (project.nodes.some(n => Math.abs(n.x - x) < CARD.width + 30 && Math.abs(n.y - y) < CARD.height + 28) && attempts++ < 100) y += CARD.height + 38;
   return { x, y };
 }
-// Reserve a loose ring of positions before requesting content, without moving existing work.
-export function surroundingPositions(nodes, anchor, count, phase = nodes.length * 0.73) {
-  const occupied = [...nodes], positions = [], gapX = CARD.width + 58, gapY = CARD.height + 66;
-  for (let i = 0; i < count; i++) {
-    const angle = phase + i * Math.PI * 2 / Math.max(count, 1);
-    let position;
-    for (let attempt = 0; attempt < 400; attempt++) {
-      const ring = Math.floor(attempt / 16), turn = attempt % 16;
-      const offset = turn ? Math.ceil(turn / 2) * 0.13 * (turn % 2 ? 1 : -1) : 0;
-      const radius = Math.max(1.28, count / 5) + ring * 0.48;
-      position = {x: Math.round(anchor.x + Math.cos(angle + offset) * gapX * radius), y: Math.round(anchor.y + Math.sin(angle + offset) * gapY * radius)};
-      if (!occupied.some(n => Math.abs(n.x - position.x) < gapX && Math.abs(n.y - position.y) < gapY)) break;
+const layoutGap = {x: CARD.width + 72, y: CARD.height + 88};
+const collides = (a, b) => Math.abs(a.x-b.x) < layoutGap.x-0.01 && Math.abs(a.y-b.y) < layoutGap.y-0.01;
+// Select nearby slots first; existing cards make room instead of sending new ideas away.
+export function surroundingPositions(nodes, anchor, count, phase = nodes.length * 0.73, protectedIds = new Set([anchor.id])) {
+  const fixed = nodes.filter(n => protectedIds.has(n.id)), slots = [], positions = [];
+  for (let ring=1; slots.length<count+8; ring++) {
+    for (let x=-ring; x<=ring; x++) for (let y=-ring; y<=ring; y++) {
+      if (Math.max(Math.abs(x),Math.abs(y))!==ring) continue;
+      const slot={x:anchor.x+x*layoutGap.x,y:anchor.y+y*layoutGap.y,gx:x,gy:y};
+      slot.crowding=nodes.filter(n=>collides(n,slot)).length;
+      if (!fixed.some(n=>collides(n,slot))) slots.push(slot);
     }
-    positions.push(position); occupied.push(position);
+  }
+  for (let i=0; i<count; i++) {
+    const angle=phase+i*Math.PI*2/Math.max(count,1);
+    const score=slot=>{
+      const delta=Math.atan2(Math.sin(Math.atan2(slot.gy,slot.gx)-angle),Math.cos(Math.atan2(slot.gy,slot.gx)-angle));
+      return Math.max(Math.abs(slot.gx),Math.abs(slot.gy))*4+Math.abs(delta)+slot.crowding*.025;
+    };
+    slots.sort((a,b)=>score(a)-score(b));
+    const slot=slots.shift();
+    positions.push({x:slot.x,y:slot.y});
   }
   return positions;
 }
+export function makeRoomForPositions(nodes, positions, protectedIds = new Set()) {
+  const fixed=nodes.filter(n=>protectedIds.has(n.id));
+  if (positions.some(pos=>fixed.some(n=>collides(n,pos)))) throw new Error('来源卡片的位置已变化，请重新生成');
+  const displaced=nodes.filter(n=>!protectedIds.has(n.id)&&positions.some(pos=>collides(n,pos)));
+  const displacedIds=new Set(displaced.map(n=>n.id));
+  const blockers=[...positions,...nodes.filter(n=>!displacedIds.has(n.id))], moves=new Map();
+  for (const node of displaced) {
+    const queue=[{x:node.x,y:node.y}],seen=new Set();let position;
+    for (let attempt=0;queue.length&&attempt<2000;attempt++) {
+      queue.sort((a,b)=>(a.x-node.x)**2+(a.y-node.y)**2-((b.x-node.x)**2+(b.y-node.y)**2));
+      const candidate=queue.shift(),key=`${candidate.x},${candidate.y}`;
+      if(seen.has(key))continue;seen.add(key);
+      const hit=blockers.find(n=>collides(n,candidate));
+      if(!hit){position=candidate;break;}
+      queue.push({x:hit.x-layoutGap.x,y:candidate.y},{x:hit.x+layoutGap.x,y:candidate.y},{x:candidate.x,y:hit.y-layoutGap.y},{x:candidate.x,y:hit.y+layoutGap.y});
+    }
+    // A finite canvas can always be cleared past its rightmost occupied card.
+    position ||= {x:Math.max(...blockers.map(n=>n.x))+layoutGap.x,y:node.y};
+    moves.set(node.id,position);blockers.push(position);
+  }
+  return moves;
+}
+export function planNearbySpace(nodes, anchor, count, protectedIds = new Set([anchor.id])) {
+  const positions=surroundingPositions(nodes,anchor,count,nodes.length*.73,protectedIds);
+  return {positions,moves:makeRoomForPositions(nodes,positions,protectedIds)};
+}
+export function branchPositions(project, nodeId) {
+  const ids=descendantsOf(project,nodeId);
+  return new Map(project.nodes.filter(n=>ids.has(n.id)).map(n=>[n.id,{x:n.x,y:n.y}]));
+}
+export function moveBranch(project, origins, dx, dy) {
+  const moved=[];
+  for(const node of project.nodes){const origin=origins.get(node.id);if(origin){node.x=origin.x+dx;node.y=origin.y+dy;moved.push(node);}}
+  return moved;
+}
+export const canCombine = (a,b) => !!a&&!!b&&a.id!==b.id&&a.kind!=='root'&&a.kind===b.kind;
+
+// Each mainline gets its own vertical band; a shared idea is placed once, with both edges kept.
+export function arrangeByMainline(project) {
+  const root=rootOf(project),index=new Map(project.nodes.map(n=>[n.id,n])),children=new Map(),heights=new Map(),depths=new Map();
+  for(const node of project.nodes){const owner=node.parentIds[0];if(owner){if(!children.has(owner))children.set(owner,[]);children.get(owner).push(node);}}
+  const height=node=>{if(!heights.has(node.id))heights.set(node.id,Math.max(CARD.height+96,(children.get(node.id)||[]).reduce((sum,n)=>sum+height(n),0)));return heights.get(node.id);};
+  const depth=node=>{if(!depths.has(node.id))depths.set(node.id,node.parentIds.length?1+Math.max(...node.parentIds.map(id=>depth(index.get(id)))):0);return depths.get(node.id);};
+  const column=CARD.width+128;
+  const place=(node,side,top,baseDepth=0,baseX=root.x)=>{
+    node.x=baseX+side*(depth(node)-baseDepth)*column;
+    node.y=top+(height(node)-CARD.height)/2;
+    let cursor=top;for(const child of children.get(node.id)||[]){place(child,side,cursor,baseDepth,baseX);cursor+=height(child);}
+  };
+  const sides=[{sign:-1,total:0,nodes:[]},{sign:1,total:0,nodes:[]}];
+  for(const node of children.get(root.id)||[]){const side=sides[0].total<=sides[1].total?sides[0]:sides[1];side.nodes.push(node);side.total+=height(node);}
+  for(const side of sides){let cursor=root.y+CARD.height/2-side.total/2;for(const node of side.nodes){place(node,side.sign,cursor);cursor+=height(node);}}
+  let bottom=root.y+CARD.height/2+Math.max(...sides.map(s=>s.total))/2+160;
+  for(const node of project.nodes.filter(n=>n.id!==root.id&&!n.parentIds.length)){place(node,1,bottom,depth(node));bottom+=height(node)+80;}
+  return project.nodes;
+}
 // A local, damped collision step. Spatial buckets keep distant cards out of the work.
-export function repelCards(nodes, fixedId, {strength = 0.38, maxStep = 24, gap = 36, activeIds = new Set([fixedId])} = {}) {
+export function repelCards(nodes, fixedId, {strength = 0.38, maxStep = 24, gap = 36, activeIds = new Set([fixedId]), fixedIds = new Set([fixedId])} = {}) {
   const width = CARD.width + gap, height = CARD.height + gap, buckets = new Map(), moved = new Set();
   const push = (node, dx, dy) => {
     node.x += dx; node.y += dy; moved.add(node.id); activeIds.add(node.id);
@@ -74,11 +138,12 @@ export function repelCards(nodes, fixedId, {strength = 0.38, maxStep = 24, gap =
     for (let x = gx - 1; x <= gx + 1; x++) for (let y = gy - 1; y <= gy + 1; y++) {
       for (const other of buckets.get(`${x},${y}`) || []) {
         if (!activeIds.has(node.id) && !activeIds.has(other.id)) continue;
+        if (fixedIds.has(node.id) && fixedIds.has(other.id)) continue;
         const dx = node.x - other.x, dy = node.y - other.y, overlapX = width - Math.abs(dx), overlapY = height - Math.abs(dy);
         if (overlapX <= 0.12 || overlapY <= 0.12) continue;
         const horizontal = overlapX < overlapY, distance = Math.min(maxStep, (horizontal ? overlapX : overlapY) * strength);
         const sign = (horizontal ? dx : dy) < 0 ? -1 : 1;
-        const nShare = node.id === fixedId ? 0 : other.id === fixedId ? 1 : 0.5;
+        const nShare = fixedIds.has(node.id) ? 0 : fixedIds.has(other.id) ? 1 : 0.5;
         const oShare = 1 - nShare;
         if (nShare) push(node, horizontal ? sign * distance * nShare : 0, horizontal ? 0 : sign * distance * nShare);
         if (oShare) push(other, horizontal ? -sign * distance * oShare : 0, horizontal ? 0 : -sign * distance * oShare);
@@ -92,10 +157,12 @@ export function repelCards(nodes, fixedId, {strength = 0.38, maxStep = 24, gap =
 export function appendGenerated(project, parentId, kind, candidates, origin = 'demo', reserved = null) {
   const parent = project.nodes.find(n => n.id === parentId);
   if (!parent || !KINDS[kind] || kind === 'root') throw new Error('请先选中一个有效节点');
-  const positions = reserved || surroundingPositions(project.nodes, parent, candidates.length);
+  const protectedIds=new Set(ancestorsOf(project,parentId).map(n=>n.id));
+  const positions = reserved || planNearbySpace(project.nodes, parent, candidates.length,protectedIds).positions;
+  const moves=makeRoomForPositions(project.nodes,positions,protectedIds);
+  for(const node of project.nodes)if(moves.has(node.id))Object.assign(node,moves.get(node.id));
   const nodes = candidates.map((item, i) => {
-    const preferred = positions[i] || surroundingPositions(project.nodes, parent, 1)[0];
-    const pos = freePosition(project, preferred.x, preferred.y);
+    const pos = positions[i];
     const node = { id: uid(), kind, title: String(item.title).slice(0, 90), description: String(item.description || '').slice(0, 1600), rationale: String(item.rationale || '').slice(0, 1600), parentIds: [parent.id], ...pos, origin };
     project.nodes.push(node); project.edges.push({ id: uid(), from: parent.id, to: node.id, relation: parent.kind === kind ? '继续细化' : `探索${KINDS[kind].label}`, rationale: node.rationale });
     return node;
@@ -120,9 +187,11 @@ export function assignParent(project, nodeId, parentId) {
 }
 export function mergeNodes(project, aId, bId, candidate, origin = 'demo', reserved = null) {
   const a = project.nodes.find(n => n.id === aId), b = project.nodes.find(n => n.id === bId);
-  if (!a || !b || a.id === b.id || a.kind !== b.kind || a.kind === 'root') throw new Error('请选择两张不同的同类卡片');
-  const preferred = reserved || surroundingPositions(project.nodes, {x:(a.x+b.x)/2,y:(a.y+b.y)/2}, 1)[0];
-  const pos = freePosition(project, preferred.x, preferred.y);
+  if (!canCombine(a,b)) throw new Error('请选择两张不同的同类卡片');
+  const protectedIds=new Set([...ancestorsOf(project,aId),...ancestorsOf(project,bId)].map(n=>n.id));
+  const pos = reserved || planNearbySpace(project.nodes,{x:(a.x+b.x)/2,y:(a.y+b.y)/2},1,protectedIds).positions[0];
+  const moves=makeRoomForPositions(project.nodes,[pos],protectedIds);
+  for(const node of project.nodes)if(moves.has(node.id))Object.assign(node,moves.get(node.id));
   const node = { id: uid(), kind: a.kind, title: String(candidate.title).slice(0, 90), description: String(candidate.description || '').slice(0, 1600), rationale: String(candidate.rationale || '').slice(0, 1600), parentIds: [a.id, b.id], ...pos, origin, merged: true };
   project.nodes.push(node);
   for (const p of [a, b]) project.edges.push({ id: uid(), from: p.id, to: node.id, relation: '共同点 / 交集', rationale: node.rationale, merged: true });

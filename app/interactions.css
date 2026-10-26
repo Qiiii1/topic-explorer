@@ -199,3 +199,32 @@
 .selection-notice .button,.generation-progress .button{pointer-events:auto}
 @keyframes path-flow{to{stroke-dashoffset:-44}}
 @media(prefers-reduced-motion:reduce){.loading-card,.skeleton-orb:after,.skeleton-line:after,.loading-word,.loading-dots i,.pending-connector,.edge-flow{animation:none!important}.loading-word{background:none;color:#8091aa}.edge-flow{display:none}}
+
+/* Dimension is consistent across every branch, including saved directions. */
+.kind-scene,.type-scene{--card-tint:#f2edf9;--card-border:#d9c9ed;--card-ink:#74549e}
+.kind-pain,.type-pain{--card-tint:#fcf0e5;--card-border:#edcfb4;--card-ink:#a26637}
+.kind-people,.type-people{--card-tint:#e9f5ef;--card-border:#badccd;--card-ink:#357c68}
+.idea-card:not(.kind-root){background:transparent}
+.idea-card:not(.kind-root) .card-surface{background:var(--card-tint);border-color:var(--card-border)}
+.idea-card:not(.kind-root) .card-top .type-chip{color:var(--card-ink);font-weight:600}
+.idea-card:not(.kind-root).is-upstream .card-surface{border-color:#88b9f8}
+.idea-card:not(.kind-root).is-selected .card-surface{border-color:#007aff}
+.saved-card{background:var(--card-tint,#fff);border-color:var(--card-border,#dedfe8)}
+.saved-card .saved-kicker{color:var(--card-ink,#7c8190)}
+.direction-front{background:var(--card-tint,#fff)}
+.loading-card{background:var(--card-tint,#fff);border-color:var(--card-border,#e0e5ef)}
+.view-tools [data-action=arrange]{color:#426795;background:#f7faff;border:1px solid #dce7f7;gap:5px}
+.view-tools [data-action=arrange] .icon{width:14px;height:14px}
+.canvas-surface.is-arranging .idea-card .dimension-option{pointer-events:none!important;transform:translateY(calc(-13px + var(--fan-index)*3px)) rotate(calc(-3deg + var(--fan-index)*3deg))!important}
+.canvas-surface.is-arranging .dimension-deck:before{pointer-events:none!important}
+
+/* A connecting gesture has three explicit states: source, available, unavailable. */
+.idea-card.is-connecting:not(.valid-target):not(.connection-source),.idea-card.is-connecting:not(.valid-target):not(.connection-source):is(:hover,:focus-within){opacity:.18;cursor:not-allowed}
+.idea-card.is-connecting.connection-source,.idea-card.is-connecting.valid-target{opacity:1}
+.idea-card.is-connecting:not(.connection-source) :is(.node-expand,.card-star,.card-more){pointer-events:none}
+.idea-card.is-connecting.valid-target .card-surface{border:2px solid #62a4ff;background:var(--card-tint,#f4f8ff);box-shadow:0 0 0 5px #007aff20,0 10px 24px #007aff15}
+.connection-target-label{position:absolute;top:-32px;left:50%;transform:translateX(-50%);z-index:7;white-space:nowrap;border:1px solid #a3cbff;border-radius:8px;background:#f1f7ff;color:#2768b5;font-size:11px;font-weight:600;padding:4px 10px;pointer-events:none}
+.idea-card.is-connecting.drop-target .card-surface{border:3px solid #007aff;box-shadow:0 0 0 8px #007aff30,0 12px 28px #007aff20}
+.idea-card.is-connecting.drop-target .connection-target-label{background:#007aff;color:#fff;border-color:#007aff}
+.idea-card.is-connecting:after{display:none}
+@media(prefers-reduced-motion:reduce){.idea-card.is-connecting{transition:none}}
