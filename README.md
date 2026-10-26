@@ -4,6 +4,14 @@
 
 从一个粗想法出发，沿场景、痛点、人群逐步细化；每个节点保留上层关联与理由。基于 Figma 低保真页 `352:2`，采用浅色 Apple 风格界面。
 
+## 在线访问
+
+[打开有点想法](https://qiiii1.github.io/topic-explorer/) · [查看示例](https://qiiii1.github.io/topic-explorer/?demo=1)
+
+在线版由 GitHub Pages 托管，无需安装。点击右上角「连接 AI」，填写自己的模型服务、模型 ID 和 API Key 后即可继续生成。密钥仅保留在当前网页的内存中，刷新或关闭后清除；浏览器直接请求所填写的模型服务，密钥和生成内容不会发送给 GitHub。其他兼容服务需要允许跨域访问（CORS）。
+
+项目仍自动保存在访问者自己的浏览器中；分享链接包含一份可编辑的项目快照，接收者需单独配置自己的 AI。在线版和本地版的浏览器存储相互独立，可通过 JSON 导入导出迁移项目。
+
 ![选题探索画布](https://raw.githubusercontent.com/Qiiii1/topic-explorer/main/reference/v3-cards.png)
 
 ## 运行
@@ -46,7 +54,7 @@ npm run start:env
 
 模型和密钥都填入后才会在启动时加载模型配置；留空可在网页中配置。`npm start` 使用系统环境变量，`npm run start:env` 额外读取本机 `.env`。`.env` 已被 Git 忽略，它包含手动保存的本地配置，请自行保管；仓库只提交不含密钥的示例文件。
 
-服务固定监听本机 `127.0.0.1`。临时修改端口可以用 `npm start -- --port 4180`。该原型需要 Node 服务，不能只把 `app/` 放到 GitHub Pages 运行 AI 功能。
+本地版固定监听本机 `127.0.0.1`。临时修改端口可以用 `npm start -- --port 4180`。本地版通过 Node 服务转发 AI 请求；在线版由单独的静态构建启用浏览器直连，两者共用请求格式和结果校验。
 
 ## 可以体验
 
@@ -59,7 +67,7 @@ npm run start:env
 - 拖动右侧连接点到另一张同类卡片，或在操作面板选择「关联同类卡片」，由 AI 提取交集。没有合理交集时保留原卡片。
 - 星标收藏节点和全部上游路径的快照；拉动页面上方中央的绳子展示收藏，卡片随绳子降下，直接悬挂在变暗的画布上；点击收藏卡片会翻转、放大到中央，关闭时返回原位。支持复制与多选导出。
 - 撤销与重做；浏览器自动保存；JSON、Markdown、PNG 导出与打印为 PDF。
-- 分享链接包含当前项目副本。原型只在本机监听，跨设备接收者需要能够访问同一个服务；也可以交换 JSON 文件。
+- 分享链接包含当前项目副本。在线版可直接跨设备打开；本地版接收者需要能够访问同一个服务，也可以交换 JSON 文件。
 
 本版没有登录、云同步、多人实时协作、论文检索或研究创新性判断。生成结果作为待调研假设使用。
 
@@ -76,6 +84,16 @@ npm run validate
 开发时可以运行 `npm run dev`，服务端文件修改后会自动重启；进程内存中的模型配置也会清除。生成可分发的源码包可运行 `npm pack`；打包范围只包含应用、服务、测试、说明、许可证及配置示例，排除本地密钥和参考截图。该命令不发布到 npm。
 
 参考截图及视觉说明在 `reference/`。图标使用 Figma 原稿导出的控件和 [Tabler Icons](https://tabler.io/icons)（MIT）；源文件随原型保留。
+
+## 发布
+
+```sh
+npm run build:pages
+```
+
+该命令将浏览器版输出到 `dist/`，不包含 Node 服务、测试、参考资料、环境变量或密钥。相对资源路径支持 GitHub Pages 的 `/topic-explorer/` 项目子目录。
+
+推送 `main` 后，`.github/workflows/pages.yml` 会检查、构建并发布到 GitHub Pages；部署状态见 [Publish website](https://github.com/Qiiii1/topic-explorer/actions/workflows/pages.yml)。仓库的 Settings → Pages 使用 GitHub Actions，无需设置模型密钥或其他部署 Secrets。
 
 ## License
 

@@ -15,6 +15,7 @@
   },
   "files": [
     "app/",
+    "scripts/",
     "server.mjs",
     "test/",
     ".env.example",
@@ -24,8 +25,9 @@
     "start": "node server.mjs",
     "start:env": "node --env-file=.env server.mjs",
     "dev": "node --watch server.mjs",
+    "build:pages": "node scripts/build-pages.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check app/app.js && node --check app/domain.js && node --check app/demo.js",
+    "check": "node --check server.mjs && node --check app/app.js && node --check app/domain.js && node --check app/demo.js && node --check app/browser-model.js && node --check app/model-protocol.js && node --check scripts/build-pages.mjs",
     "validate": "npm run check && npm test"
   },
   "engines": {
