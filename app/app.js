@@ -1,4 +1,4 @@
-import { KINDS, CARD, uid, clone, createProject, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, appendManual, mergeNodes, assignParent, favoriteNode, removeBranch, visibleNodes, boundsOf, validateProject, toMarkdown, planNearbySpace, branchPositions, moveBranch, arrangeByMainline, canCombine, repelCards } from './domain.js';
+import { KINDS, CARD, uid, clone, createProject, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, appendManual, mergeNodes, assignParent, favoriteNode, removeBranch, visibleNodes, boundsOf, validateProject, toMarkdown, planNearbySpace, branchPositions, moveBranch, arrangeByMainline, canCombine, repelCards, spreadCrowdedCards, nodesInRect, selectionExport, importSelection } from './domain.js';
 import { demoGenerate } from './demo.js';
 import { createBrowserModelClient } from './browser-model.js';
 
@@ -13,12 +13,13 @@ function icon(name,extra=''){
 const button=(label,action,options={})=>`<button type="button" class="button ${options.class||''}" data-action="${action}" ${options.id?`data-id="${esc(options.id)}"`:''} ${options.extra||''} ${options.disabled?'disabled':''}>${options.icon?icon(options.icon):''}${label}</button>`;
 const iconButton=(label,action,name,options={})=>`<button type="button" class="icon-button ${options.class||''}" data-action="${action}" aria-label="${esc(label)}" title="${esc(label)}" ${options.id?`data-id="${esc(options.id)}"`:''} ${options.extra||''} ${options.disabled?'disabled':''}>${icon(name)||esc(options.symbol||label)}</button>`;
 const chip=kind=>`<span class="type-chip type-${kind}"><span></span>${KINDS[kind].label}</span>`;
+const actionGlyph=name=>`<svg class="action-glyph" viewBox="0 0 24 24" aria-hidden="true">${name==='star'?'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/>':'<path d="M12 5v14M5 12h14"/>'}</svg>`;
 const browserModel=document.querySelector('meta[name="topic-runtime"][content="static"]')?createBrowserModelClient():null;
 const STORAGE='topic-explorer-projects-v1';
 let projects=[];try{projects=JSON.parse(localStorage.getItem(STORAGE)||'[]').flatMap(value=>{try{return [validateProject(value)];}catch{return [];}});}catch{projects=[];}
 let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,tool='select',assigning=null,connecting=null,pending=null,search='',query='',manualDraft='',manualKind='scene',modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},history=[],future=[],savedSelection=new Set(),drag=null,spaceHeld=false;
 let lastFocus=null,saveTimer=null,queuedAfterModel=null,fanPinned=null,cordDrag=null,suppressCordClick=false;
-let cardMotion=null,layoutAnimation=null;
+let cardMotion=null,layoutAnimation=null,canvasSelection=new Set();
 const app=$('#app'),overlays=$('#overlays');
 
 function persist(){
@@ -30,6 +31,11 @@ function toast(message,type='success'){
   const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=message;$('#toasts').appendChild(el);setTimeout(()=>el.remove(),type==='error'?6000:3600);
 }
 function current(){return p?.nodes.find(n=>n.id===selected)||(p?rootOf(p):null);}
+function setCanvasSelection(ids,primary=null){
+  const valid=new Set(p?.nodes.map(n=>n.id));canvasSelection=new Set([...ids].filter(id=>valid.has(id)));
+  selected=canvasSelection.has(primary)?primary:[...canvasSelection].at(-1)||null;
+}
+function selectOnly(id){setCanvasSelection(id?[id]:[],id);}
 function selectedPaths(){try{return getPaths(p,current().id);}catch{return [];}}
 async function api(path,body,signal){
   if(browserModel)return browserModel.request(path,body,signal);
@@ -48,15 +54,15 @@ function header(){return `<header class="app-header">
   </div></header>`;}
 function render(){if(screen==='home')renderHome();else renderWorkspace();updateModelBadge();}
 function renderHome(){
-  screen='home';app.innerHTML=header()+`<main class="home-main"><section class="home-intro"><div class="intro-eyebrow"><span></span>从一个还不确定的想法开始</div><h1>有点想法，<br>就值得往下想。</h1><p>把模糊的好奇，慢慢展开成愿意继续探索的方向。</p><div class="home-primary">${button('新建探索','new-project',{class:'primary large',icon:'plus'})}${button('打开项目','import',{class:'large',icon:'file'})}</div><button class="text-button sample-link" data-action="demo">先看看「人与城市」示例 ${icon('arrow')}</button></section>
-  <section class="recent-section"><div class="section-heading"><h2>最近的探索 <span>${projects.length?String(projects.length).padStart(2,'0'):''}</span></h2><span>保存在这台设备上</span></div>${projects.length?`<div class="projects-grid">${projects.map(project=>`<article class="project-card"><button class="project-open" data-action="open-project" data-id="${project.id}"><span class="project-card-icon">${icon('branch')}</span><h3>${esc(project.title)}</h3><p>${esc(project.description)}</p><footer><span>${project.nodes.length} 个想法 · ${project.favorites.length} 个方向</span><time>${new Date(project.updatedAt).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</time></footer></button><button class="project-delete" data-action="delete-project" data-id="${project.id}" aria-label="删除项目 ${esc(project.title)}">×</button></article>`).join('')}</div>`:`<div class="home-empty">你的探索会出现在这里。一个问题、一点观察，或者一份作业要求，都可以成为起点。</div>`}</section></main><footer class="home-footer"><span>想法可以不成熟，来路要清楚。</span><span>网页交互原型 · v0.1</span></footer>`;
+  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project">${actionGlyph('plus')}<span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects">${icon('file')}<span>打开项目</span></button></div></main>`;
 }
 function renderWorkspace(){
   app.innerHTML=header()+`<main class="workspace ${showShelf?'with-shelf':''} ${showOutline?'with-outline':''}">
     <div class="path-bar" id="path-bar"></div>
     <button class="collection-backdrop ${showShelf?'is-open':''}" data-action="shelf" aria-label="收起收藏栏" tabindex="-1" ${showShelf?'':'inert'}></button>
     <section class="shelf ${showShelf?'is-open':''}" id="shelf" aria-label="收藏的方向" ${showShelf?'':'inert'}></section>
-    <section id="surface" class="canvas-surface ${tool==='hand'?'hand-tool':''}" aria-label="选题探索画布" tabindex="0"><div id="world" class="canvas-world"><svg id="edges" class="edges" width="1" height="1"></svg><div id="nodes"></div><svg id="link-preview" class="link-preview" width="1" height="1"></svg></div><div class="canvas-empty" id="canvas-empty"></div></section>
+    <section id="surface" class="canvas-surface ${tool==='hand'?'hand-tool':''}" aria-label="选题探索画布，拖动空白处框选，按住空格平移" tabindex="0"><div id="world" class="canvas-world"><svg id="edges" class="edges" width="1" height="1"></svg><div id="nodes"></div><svg id="link-preview" class="link-preview" width="1" height="1"></svg><div id="selection-bounds" class="selection-bounds" hidden><i></i><i></i><i></i><i></i></div></div><div id="marquee" class="marquee" hidden></div><div class="canvas-empty" id="canvas-empty"></div></section>
+    <div id="canvas-selection-bar" class="canvas-selection-bar glass" aria-live="polite" hidden></div>
     <div class="canvas-top-tools glass"><div class="segmented tool-switch"><button data-action="tool-select" class="${tool==='select'?'selected':''}" aria-pressed="${tool==='select'}">选择</button><button data-action="tool-hand" class="${tool==='hand'?'selected':''}" aria-pressed="${tool==='hand'}">平移</button></div><span class="tool-separator"></span>${iconButton('撤销，Command Z','undo','undo',{disabled:!history.length})}${iconButton('重做，Command Shift Z','redo','undo',{class:'redo-icon',disabled:!future.length})}<span class="tool-separator"></span><button class="zoom-button" data-action="zoom-out" aria-label="缩小">−</button><button id="zoom-value" class="zoom-value" data-action="fit" title="适应画面">100%</button><button class="zoom-button" data-action="zoom-in" aria-label="放大">+</button></div>
     <div class="canvas-heading"><span class="eyebrow">正在探索</span><span id="node-count"></span></div>
     <div class="view-tools">${button('一键整理','arrange',{icon:'layers',extra:'title="按照主线整理画布，可撤销"'})}${button(showOutline?'收起路径':'探索路径','outline',{class:showOutline?'active':''})}${focusId?button('退出聚焦','unfocus',{class:'active'}):''}${p.nodes.some(n=>n.hidden)?button(showHidden?'隐藏已收起':'显示已收起','toggle-hidden',{class:showHidden?'active':''}):''}</div>
@@ -64,8 +70,8 @@ function renderWorkspace(){
     <aside id="node-panel" class="node-panel glass" aria-label="当前卡片操作" hidden></aside>
     <div id="selection-notice" class="selection-notice glass" hidden></div>
     <section class="manual-dock" aria-label="手动添加卡片"><div class="dock-top"><span><span class="status-dot neutral"></span>手动添加 · 独立卡片</span><div class="generation-setting"><span>每次生成</span><div class="segmented">${[3,6,10].map(n=>`<button data-action="count" data-count="${n}" class="${p.generationCount===n?'selected':''}" aria-pressed="${p.generationCount===n}">${n}</button>`).join('')}</div><span>张</span></div></div>
-    <form id="manual-form" class="manual-form glass"><label class="kind-select"><span class="sr-only">卡片类型</span><select id="manual-kind" aria-label="手动卡片类型">${['scene','pain','people'].map(kind=>`<option value="${kind}" ${manualKind===kind?'selected':''}>${KINDS[kind].label}</option>`).join('')}</select></label><label class="manual-input"><span class="sr-only">手动卡片内容</span><textarea id="manual-text" rows="1" maxlength="400" placeholder="写下一点想法，添加成卡片…">${esc(manualDraft)}</textarea></label><button type="submit" class="add-card-button" aria-label="添加独立卡片">${icon('plus')}</button></form><div class="dock-hint"><span>添加后可指定上层，或与同类卡片寻找交集。</span><span><kbd>⌘</kbd> <kbd>↵</kbd> 添加</span></div></section>
-    <div class="canvas-footer"><span>拖动画布移动 · 滚轮缩放 · 双击空白处添加卡片</span><span id="mode-note">${model.mode==='live'?'生成结果待验证':'连接模型后开始生成'}</span></div>
+    <form id="manual-form" class="manual-form glass"><label class="kind-select"><span class="sr-only">卡片类型</span><select id="manual-kind" aria-label="手动卡片类型">${['scene','pain','people'].map(kind=>`<option value="${kind}" ${manualKind===kind?'selected':''}>${KINDS[kind].label}</option>`).join('')}</select></label><label class="manual-input"><span class="sr-only">手动卡片内容</span><textarea id="manual-text" rows="1" maxlength="400" placeholder="写下一点想法，添加成卡片…">${esc(manualDraft)}</textarea></label><button type="submit" class="add-card-button" aria-label="添加独立卡片">${actionGlyph('plus')}</button></form><div class="dock-hint"><span>添加后可指定上层，或与同类卡片寻找交集。</span><span><kbd>⌘</kbd> <kbd>↵</kbd> 添加</span></div></section>
+    <div class="canvas-footer"><span>拖动空白处框选 · Shift 加选 · 空格平移 · ⌘A 全选</span><span id="mode-note">${model.mode==='live'?'生成结果待验证':'连接模型后开始生成'}</span></div>
     <div id="generation-progress" class="generation-progress glass" hidden></div>
   </main>`;
   $('#manual-form').addEventListener('submit',addManualCard);
@@ -84,21 +90,31 @@ function curve(a,b){
   const sign=by>=ay?1:-1,y1=ay+sign*CARD.height/2,y2=by-sign*CARD.height/2,d=Math.max(70,Math.abs(y2-y1)*0.5);return {d:`M ${ax} ${y1} C ${ax} ${y1+sign*d},${bx} ${y2-sign*d},${bx} ${y2}`,mx:(ax+bx)/2,my:(y1+y2)/2};
 }
 function graphNodes(){return visibleNodes(p,{focusId,showHidden}).map(n=>pending?.layout?.moves.has(n.id)?{...n,...pending.layout.moves.get(n.id)}:n);}
+function paintCanvasSelection(nodes=graphNodes()){
+  const visible=new Set(nodes.map(n=>n.id));
+  for(const id of canvasSelection)if(!visible.has(id))canvasSelection.delete(id);
+  for(const el of $$('.idea-card')){const active=canvasSelection.has(el.dataset.node);el.classList.toggle('is-selected',active);if(el.getAttribute('aria-pressed')!==String(active))el.setAttribute('aria-pressed',String(active));}
+  const chosen=nodes.filter(n=>canvasSelection.has(n.id)),box=$('#selection-bounds'),bar=$('#canvas-selection-bar');
+  if(box){box.hidden=chosen.length<2;if(!box.hidden){const b=boundsOf(chosen);Object.assign(box.style,{left:b.x-12+'px',top:b.y-12+'px',width:b.width+24+'px',height:b.height+24+'px'});}}
+  if(bar){bar.hidden=chosen.length<2||!!connecting||!!assigning;const count=bar.dataset.count;if(count!==String(chosen.length)){bar.dataset.count=chosen.length;bar.innerHTML=`<span>已选 <strong>${chosen.length}</strong> 张</span>${button('导出选中','export-selection')}${button('取消选择','clear-canvas-selection')}`;}}
+}
 function drawGraph(){
   if(screen!=='workspace'||!p)return;
   stopLayoutAnimation();
-  const nodes=graphNodes(),nodeIndex=new Map(nodes.map(n=>[n.id,n])),ids=new Set(nodeIndex.keys()),ancestors=new Set(ancestorsOf(p,current().id).map(n=>n.id));
+  const nodes=graphNodes(),nodeIndex=new Map(nodes.map(n=>[n.id,n])),ids=new Set(nodeIndex.keys());
+  setCanvasSelection([...canvasSelection].filter(id=>ids.has(id)),selected);
+  const ancestors=new Set(ancestorsOf(p,current().id).map(n=>n.id));
   $('#nodes').innerHTML=nodes.map(n=>{
-    const active=n.id===selected,saved=p.favorites.some(f=>f.nodeId===n.id),match=!search||`${n.title} ${n.description}`.toLowerCase().includes(search.toLowerCase());
+    const active=canvasSelection.has(n.id),saved=p.favorites.some(f=>f.nodeId===n.id),match=!search||`${n.title} ${n.description}`.toLowerCase().includes(search.toLowerCase());
     const valid=connecting&&canCombine(p.nodes.find(v=>v.id===connecting),n);
     return `<article class="idea-card kind-${n.kind} ${active?'is-selected':''} ${ancestors.has(n.id)&&!active?'is-upstream':''} ${ancestors.size>1&&!ancestors.has(n.id)?'off-path':''} ${n.hidden?'is-hidden':''} ${!match?'search-dim':''} ${connecting?'is-connecting':''} ${connecting===n.id?'connection-source':''} ${valid?'valid-target':''} ${assigning&&descendantsOf(p,assigning).has(n.id)?'invalid-parent':''} ${fanPinned===n.id?'fan-pinned':''} ${menu==='node'&&active?'menu-open':''}" style="left:${n.x}px;top:${n.y}px" data-x="${n.x}" data-y="${n.y}" data-node="${n.id}" role="button" tabindex="0" aria-label="${KINDS[n.kind].label}：${esc(n.title)}${ancestors.has(n.id)&&!active?'，当前方向的上游':''}" aria-pressed="${active}">${valid?'<span class="connection-target-label">可组合</span>':''}
-      <div class="dimension-deck" role="group" aria-label="为${esc(n.title)}选择细化维度">${['people','pain','scene'].map((kind,i)=>`<button class="dimension-option type-${kind}" style="--fan-index:${i}" data-action="expand" data-kind="${kind}" data-id="${n.id}" aria-label="从${KINDS[kind].label}细化：${esc(n.title)}"><span class="dimension-dot"></span><strong>${KINDS[kind].label}</strong><span class="dimension-count">${p.generationCount} 张</span>${icon('arrow')}</button>`).join('')}</div><div class="card-surface"><div class="card-top">${n.kind==='root'?'<span class="type-chip type-root"><span></span>主选题</span>':chip(n.kind)}${n.merged?'<span class="merge-tag" title="来自两个想法的交集">∩</span>':''}</div><h3>${esc(n.title)}</h3><button class="card-more" data-action="node-menu" data-id="${n.id}" aria-label="卡片操作：${esc(n.title)}">···</button></div><button class="node-expand" data-action="expand-same" data-id="${n.id}" aria-label="${n.kind==='root'?'展开选题维度':'继续细化'}：${esc(n.title)}">${icon('plus')}</button>${n.kind!=='root'?`<button class="card-star ${saved?'is-saved':''}" data-action="favorite" data-id="${n.id}" aria-label="${saved?'取消收藏':'收藏完整路径'}：${esc(n.title)}" aria-pressed="${saved}">${icon('star')}</button>`:''}<span class="selection-corner" aria-hidden="true">✓</span>${n.kind!=='root'?`<button class="connection-handle handle-right" data-handle="${n.id}" aria-label="拖动加号连接同类卡片：${esc(n.title)}" title="拖出连线，与同类卡片组合"><span aria-hidden="true">+</span></button>`:''}</article>`;
+      <div class="dimension-deck" role="group" aria-label="为${esc(n.title)}选择细化维度">${['people','pain','scene'].map((kind,i)=>`<button class="dimension-option type-${kind}" style="--fan-index:${i}" data-action="expand" data-kind="${kind}" data-id="${n.id}" aria-label="从${KINDS[kind].label}细化：${esc(n.title)}"><span class="dimension-dot"></span><strong>${KINDS[kind].label}</strong><span class="dimension-count">${p.generationCount} 张</span>${icon('arrow')}</button>`).join('')}</div><div class="card-surface"><div class="card-top">${n.kind==='root'?'<span class="type-chip type-root"><span></span>主选题</span>':chip(n.kind)}${n.merged?'<span class="merge-tag" title="来自两个想法的交集">∩</span>':''}</div><h3>${esc(n.title)}</h3><button class="card-more" data-action="node-menu" data-id="${n.id}" aria-label="卡片操作：${esc(n.title)}">···</button></div><button class="node-expand" data-action="expand-same" data-id="${n.id}" aria-label="${n.kind==='root'?'展开选题维度':'继续细化'}：${esc(n.title)}">${actionGlyph('plus')}</button>${n.kind!=='root'?`<button class="card-star ${saved?'is-saved':''}" data-action="favorite" data-id="${n.id}" aria-label="${saved?'取消收藏':'收藏完整路径'}：${esc(n.title)}" aria-pressed="${saved}">${actionGlyph('star')}</button>`:''}<span class="selection-corner" aria-hidden="true">✓</span>${n.kind!=='root'?`<button class="connection-handle handle-right" data-handle="${n.id}" aria-label="拖动加号连接同类卡片：${esc(n.title)}" title="拖出连线，与同类卡片组合"><span aria-hidden="true">+</span></button>`:''}</article>`;
   }).join('')+pendingCardMarkup();
   $('#edges').innerHTML='<defs><marker id="path-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#007aff"/></marker></defs>'+p.edges.filter(e=>ids.has(e.from)&&ids.has(e.to)).sort((a,b)=>Number(ancestors.has(a.from)&&ancestors.has(a.to))-Number(ancestors.has(b.from)&&ancestors.has(b.to))).map(e=>{
     const a=nodeIndex.get(e.from),b=nodeIndex.get(e.to),c=curve(a,b),active=ancestors.has(e.from)&&ancestors.has(e.to),label=e.merged?'共同点 / 交集':e.relation;
     return `<g class="edge-group ${active?'is-active':''} ${ancestors.size>1&&!active?'is-muted':''} ${e.merged?'merged-edge':''}" data-edge="${e.id}" role="button" tabindex="0" aria-label="查看关联：${esc(a.title)}到${esc(b.title)}">${active?`<path class="edge-halo" d="${c.d}"></path>`:''}<path class="edge-line" d="${c.d}" ${active?'marker-end="url(#path-arrow)"':''}></path>${active?`<path class="edge-flow" d="${c.d}"></path>`:''}<path class="edge-hit" d="${c.d}"></path><g class="edge-label" transform="translate(${c.mx},${c.my})"><rect x="-51" y="-13" width="102" height="26" rx="13"></rect><text y="4" text-anchor="middle">${esc(label)}</text></g></g>`;
   }).join('')+pendingEdgesMarkup();
-  updateView();updatePath();drawShelf();drawOutline();drawNodePanel();updateNotices();
+  updateView();updatePath();drawShelf();drawOutline();drawNodePanel();updateNotices();paintCanvasSelection();
   $('#node-count').textContent=`${p.nodes.length} 个想法${focusId?' · 正在聚焦一条分支':''}`;
   $('#canvas-empty').hidden=p.nodes.length>1||!!pending;
   if(p.nodes.length===1)$('#canvas-empty').innerHTML='<span>悬停选题中心，在上方选择细化维度。</span><p>场景、痛点、人群，可以从任何一处开始。</p>';
@@ -155,15 +171,15 @@ function updateView(){
 function fitView(nodes=null,overview=false){
   const surface=$('#surface');if(!surface)return;const r=surface.getBoundingClientRect(),b=boundsOf(nodes||visibleNodes(p,{focusId,showHidden}));
   const top=108+(showShelf?258:0),bottom=176,left=showOutline?270:38,right=38;
-  const scale=Math.min(1.05,Math.max(overview?0.25:0.75,Math.min((r.width-left-right)/(b.width+55),(r.height-top-bottom)/(b.height+45))));
+  const scale=Math.min(1.05,Math.max(overview?0.08:0.75,Math.min((r.width-left-right)/(b.width+55),(r.height-top-bottom)/(b.height+45))));
   view={scale,x:left+(r.width-left-right)/2-(b.x+b.width/2)*scale,y:top+(r.height-top-bottom)/2-(b.y+b.height/2)*scale};updateView();
 }
 function centerNode(id){const n=p.nodes.find(v=>v.id===id),r=$('#surface').getBoundingClientRect();if(!n)return;view.x=r.width/2-(n.x+CARD.width/2)*view.scale;view.y=(r.height-100)/2-(n.y+CARD.height/2)*view.scale;updateView();}
-function zoomBy(factor,point=null){const r=$('#surface').getBoundingClientRect(),x=point?.x??r.width/2,y=point?.y??r.height/2;const next=Math.max(0.28,Math.min(1.75,view.scale*factor));view.x=x-(x-view.x)*next/view.scale;view.y=y-(y-view.y)*next/view.scale;view.scale=next;updateView();}
+function zoomBy(factor,point=null){const r=$('#surface').getBoundingClientRect(),x=point?.x??r.width/2,y=point?.y??r.height/2;const next=Math.max(0.08,Math.min(1.75,view.scale*factor));view.x=x-(x-view.x)*next/view.scale;view.y=y-(y-view.y)*next/view.scale;view.scale=next;updateView();}
 function drawNodePanel(){
   const panel=$('#node-panel');if(!panel)return;
   if(!fanPinned)$$('.idea-card.fan-pinned').forEach(el=>el.classList.remove('fan-pinned'));
-  if(menu!=='node'||!selected){panel.hidden=true;$$('.idea-card.menu-open').forEach(el=>el.classList.remove('menu-open'));return;}
+  if(menu!=='node'||!selected||canvasSelection.size>1){panel.hidden=true;$$('.idea-card.menu-open').forEach(el=>el.classList.remove('menu-open'));return;}
   const n=current();panel.hidden=false;panel.innerHTML=`<div class="panel-heading"><span class="eyebrow">${KINDS[n.kind].label}</span>${iconButton('关闭卡片操作','close-menu','',{symbol:'×'})}</div><h2>${esc(n.title)}</h2><p class="panel-description">${esc(n.description)}</p><div class="panel-reason"><span>与上层的关联</span><p>${esc(n.rationale)}</p></div><div class="panel-secondary">${button('编辑内容与理由','edit',{id:n.id})}${button('完整路径','details',{id:n.id})}${n.kind!=='root'?button('指定上层','assign',{id:n.id}):''}${n.kind!=='root'?button('关联同类卡片','connect',{id:n.id}):''}</div>${n.kind!=='root'?`<div class="panel-bottom">${button(n.hidden?'恢复显示':'隐藏分支','hide',{id:n.id})}${button('只显示此分支','focus',{id:n.id})}${button('删除','delete-node',{id:n.id,class:'danger-text'})}</div>`:''}`;
 }
 function updatePull(){
@@ -198,7 +214,9 @@ function updateNotices(){
 }
 function openProject(project){
   finishCardMotion();
-  pending?.controller.abort();pending=null;p=project;screen='workspace';selected=rootOf(p).id;menu=null;fanPinned=null;focusId=null;showShelf=false;showOutline=false;showHidden=false;history=[];future=[];search='';assigning=null;connecting=null;manualDraft='';render();requestAnimationFrame(()=>fitView());
+  pending?.controller.abort();pending=null;p=project;screen='workspace';selectOnly(rootOf(p).id);menu=null;fanPinned=null;focusId=null;showShelf=false;showOutline=false;showHidden=false;history=[];future=[];search='';assigning=null;connecting=null;manualDraft='';
+  const before=clone(p);if(spreadCrowdedCards(p.nodes,new Set([rootOf(p).id])).size){history.push(before);persist();}
+  render();requestAnimationFrame(()=>fitView(null,true));
 }
 function openDemo(){
   let project=projects.find(v=>v.isExample);if(!project){
@@ -210,7 +228,7 @@ function openDemo(){
     Object.assign(pains[0],{x:-700,y:-180});Object.assign(pains[1],{x:-700,y:95});pains[0].rationale='留意停留时的社交边界：想感受周围人的存在，也希望保留独处的自由。';
     projects.unshift(project);p=project;persist();
   }
-  openProject(project);selected=project.nodes.find(n=>n.kind==='scene').id;drawGraph();toast('这是预置示例。继续生成时会使用你配置的真实 AI。');
+  openProject(project);selectOnly(project.nodes.find(n=>n.kind==='scene').id);drawGraph();toast('这是预置示例。继续生成时会使用你配置的真实 AI。');
 }
 async function generate(parentId,kind){
   if(pending)return toast('请等待这次生成完成，或先取消。');
@@ -219,13 +237,13 @@ async function generate(parentId,kind){
   finishCardMotion();
   const before=clone(p.nodes),protectedIds=new Set(ancestorsOf(p,parentId).map(n=>n.id));
   const projectId=p.id,count=p.generationCount,controller=new AbortController(),layout=planNearbySpace(p.nodes,node,count,protectedIds),positions=layout.positions;
-  pending={controller,operation:'expand',kind,count,positions,layout,sourceIds:[parentId],label:`沿着“${node.title.slice(0,18)}”生成 ${count} 张${KINDS[kind].label}…`};menu=null;fanPinned=null;selected=parentId;drawGraph();animateLayout(before);revealCards([node,...positions]);
+  pending={controller,operation:'expand',kind,count,positions,layout,sourceIds:[parentId],label:`沿着“${node.title.slice(0,18)}”生成 ${count} 张${KINDS[kind].label}…`};menu=null;fanPinned=null;selectOnly(parentId);drawGraph();animateLayout(before);revealCards([node,...positions]);
   try{
     const result=await api('/generate',{operation:'expand',project:{title:p.title,description:p.description,context:p.context},node,ancestors:ancestorsOf(p,node.id),targetKind:kind,count,exclude:p.nodes.filter(n=>n.parentIds.includes(node.id)&&n.kind===kind).map(n=>n.title)},controller.signal);
     if(controller.signal.aborted||p?.id!==projectId)return;
     if(!result.nodes.length)throw new Error(result.message||'模型没有给出可用候选，可以调整条件后重试。');
     if(!p.nodes.some(n=>n.id===parentId))throw new Error('来源卡片已被移除，这次结果没有加入画布。');
-    pending=null;let created;commit(()=>created=appendGenerated(p,parentId,kind,result.nodes,'live',positions));selected=created[0].id;menu=null;drawGraph();revealCards([node,...created]);animateCreated(created,node);toast(`已生成 ${created.length} 个${KINDS[kind].label}候选，每个都保留了上层关联。`);
+    pending=null;let created;commit(()=>created=appendGenerated(p,parentId,kind,result.nodes,'live',positions));selectOnly(created[0].id);menu=null;drawGraph();revealCards([node,...created]);animateCreated(created,node);toast(`已生成 ${created.length} 个${KINDS[kind].label}候选，每个都保留了上层关联。`);
   }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller)clearPending();updateNotices();}
 }
 async function combine(aId,bId){
@@ -243,25 +261,27 @@ async function combine(aId,bId){
     if(controller.signal.aborted||p?.id!==projectId)return;
     if(!result.nodes.length){toast(result.message||'没有找到合理交集，原卡片已保留。');return;}
     if(![aId,bId].every(id=>p.nodes.some(n=>n.id===id)))throw new Error('来源卡片已被移除，这次结果没有加入画布。');
-    pending=null;let node;commit(()=>node=mergeNodes(p,aId,bId,result.nodes[0],'live',positions[0]));selected=node.id;drawGraph();revealCards(ancestorsOf(p,node.id));animateCreated([node],positions[0]);toast('已生成交集卡片，两个来源均已保留。');
+    pending=null;let node;commit(()=>node=mergeNodes(p,aId,bId,result.nodes[0],'live',positions[0]));selectOnly(node.id);drawGraph();revealCards(ancestorsOf(p,node.id));animateCreated([node],positions[0]);toast('已生成交集卡片，两个来源均已保留。');
   }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller)clearPending();updateNotices();}
 }
 function clearPending(){const before=graphNodes().map(n=>({...n}));pending=null;drawGraph();animateLayout(before);}
 function addManualCard(e){
   e?.preventDefault();if(pending)return toast('正在为新卡片留出空间，生成完成后即可添加。');if(!manualDraft.trim())return $('#manual-text').focus();
   const r=$('#surface').getBoundingClientRect(),position={x:(r.width/2-view.x)/view.scale-CARD.width/2,y:(r.height/2-view.y)/view.scale-CARD.height/2};let n;
-  commit(()=>n=appendManual(p,null,manualKind,manualDraft.trim(),'',position));selected=n.id;manualDraft='';$('#manual-text').value='';drawGraph();centerNode(n.id);menu='node';drawNodePanel();toast('已添加独立卡片，可在卡片操作中“指定上层”。');
+  const before=clone(p.nodes);commit(()=>{n=appendManual(p,null,manualKind,manualDraft.trim(),'',position);spreadCrowdedCards(p.nodes,new Set([n.id,rootOf(p).id]));});selectOnly(n.id);manualDraft='';$('#manual-text').value='';drawGraph();animateLayout(before);centerNode(n.id);menu='node';drawNodePanel();toast('已添加独立卡片，可在卡片操作中“指定上层”。');
 }
-function selectNode(id){
+function selectNode(id,additive=false){
   finishCardMotion();
   const node=p.nodes.find(n=>n.id===id);if(!node)return;
-  if(assigning){try{const moving=assigning;commit(()=>assignParent(p,moving,id));assigning=null;selected=moving;menu=null;drawGraph();toast('已指定上层，完整路径已更新。');}catch(e){toast(e.message,'error');}return;}
+  if(assigning){try{const moving=assigning;commit(()=>assignParent(p,moving,id));assigning=null;selectOnly(moving);menu=null;drawGraph();toast('已指定上层，完整路径已更新。');}catch(e){toast(e.message,'error');}return;}
   if(connecting){if(connecting===id)return;combine(connecting,id);return;}
-  selected=id;menu=null;fanPinned=matchMedia('(hover: none)').matches?id:null;drawGraph();$(`[data-node="${id}"]`)?.focus({preventScroll:true});
+  if(additive){const next=new Set(canvasSelection);next.has(id)?next.delete(id):next.add(id);setCanvasSelection(next,id);}else selectOnly(id);
+  menu=null;fanPinned=canvasSelection.size===1&&matchMedia('(hover: none)').matches?id:null;drawGraph();$(`[data-node="${id}"]`)?.focus({preventScroll:true});
 }
 function paintCardPositions(nodes){
   for(const n of nodes){const el=$(`[data-node="${n.id}"]`);if(el)el.style.translate=`${n.x-Number(el.dataset.x)}px ${n.y-Number(el.dataset.y)}px`;}
   updateEdgePositions(nodes);
+  paintCanvasSelection(nodes);
 }
 function finishCardMotion(record=true){
   const motion=cardMotion;if(!motion)return;
@@ -275,7 +295,7 @@ function startCardMotion(before,id,fixedIds){
   $('#surface').classList.add('is-dragging-card');
   function tick(){
     const motion=cardMotion;if(!motion||p?.id!==motion.projectId)return;
-    const moved=repelCards(motion.nodes,motion.fixedId,{activeIds:motion.activeIds,fixedIds:motion.fixedIds});
+    const moved=repelCards(motion.nodes,motion.fixedId,{activeIds:motion.activeIds,fixedIds:motion.fixedIds,gap:112});
     paintCardPositions(motion.nodes);
     if(motion.released&&(!moved.size||++motion.settleFrames>100)){finishCardMotion();drawGraph();return;}
     motion.frame=requestAnimationFrame(tick);
@@ -284,7 +304,7 @@ function startCardMotion(before,id,fixedIds){
 }
 function bindCanvas(){
   const surface=$('#surface');
-  surface.addEventListener('wheel',event=>{if(event.target.closest('.node-panel,.manual-dock,.shelf'))return;event.preventDefault();const rect=surface.getBoundingClientRect();if(event.ctrlKey||event.metaKey||Math.abs(event.deltaY)>Math.abs(event.deltaX)*1.5)zoomBy(Math.exp(-event.deltaY*0.0017),{x:event.clientX-rect.left,y:event.clientY-rect.top});else{view.x-=event.deltaX;view.y-=event.deltaY;updateView();}},{passive:false});
+  surface.addEventListener('wheel',event=>{if(event.target.closest('.node-panel,.manual-dock,.shelf'))return;event.preventDefault();if(drag)return;const rect=surface.getBoundingClientRect();if(event.ctrlKey||event.metaKey||Math.abs(event.deltaY)>Math.abs(event.deltaX)*1.5)zoomBy(Math.exp(-event.deltaY*0.0017),{x:event.clientX-rect.left,y:event.clientY-rect.top});else{view.x-=event.deltaX;view.y-=event.deltaY;updateView();}},{passive:false});
   surface.addEventListener('pointerdown',event=>{
     if(event.button!==0&&event.button!==1)return;
     const handle=event.target.closest('[data-handle]'),nodeEl=event.target.closest('[data-node]');
@@ -293,8 +313,15 @@ function bindCanvas(){
     if(event.target.closest('button,[data-edge]')&&!spaceHeld&&tool!=='hand')return;
     finishCardMotion();
     stopLayoutAnimation();
-    if(nodeEl&&!spaceHeld&&tool!=='hand'&&event.button!==1){const n=p.nodes.find(v=>v.id===nodeEl.dataset.node);drag={type:'node',id:n.id,startX:event.clientX,startY:event.clientY,origins:branchPositions(p,n.id),moved:false,before:clone(p)};}
-    else{drag={type:'pan',startX:event.clientX,startY:event.clientY,x:view.x,y:view.y,moved:false};surface.classList.add('is-panning');}
+    if(nodeEl&&!spaceHeld&&tool!=='hand'&&event.button!==1){
+      const n=p.nodes.find(v=>v.id===nodeEl.dataset.node),selection=event.shiftKey?new Set([...canvasSelection,n.id]):canvasSelection.has(n.id)?new Set(canvasSelection):new Set([n.id]);
+      drag={type:connecting||assigning?'pick':'node',id:n.id,startX:event.clientX,startY:event.clientY,origins:branchPositions(p,[...selection]),selection,oldSelection:new Set(canvasSelection),additive:event.shiftKey,moved:false,before:clone(p)};
+    }else if(spaceHeld||tool==='hand'||event.button===1){drag={type:'pan',startX:event.clientX,startY:event.clientY,x:view.x,y:view.y,moved:false};surface.classList.add('is-panning');}
+    else{
+      const rect=surface.getBoundingClientRect();menu=null;fanPinned=null;drawNodePanel();
+      drag={type:'marquee',startX:event.clientX,startY:event.clientY,rect,base:event.shiftKey?new Set(canvasSelection):new Set(),oldSelection:new Set(canvasSelection),moved:false};surface.classList.add('is-marquee');
+      surface.focus({preventScroll:true});
+    }
     event.preventDefault();
     surface.setPointerCapture(event.pointerId);
   });
@@ -308,8 +335,14 @@ document.addEventListener('pointermove',event=>{
   if(cordDrag){const delta=event.clientY-cordDrag.startY;if(Math.abs(delta)>5){cordDrag.pull.classList.add('is-dragging');cordDrag.pull.style.setProperty('--cord-offset',Math.max(-30,Math.min(30,delta))+'px');}return;}
   if(!drag)return;const dx=event.clientX-drag.startX,dy=event.clientY-drag.startY;if(Math.hypot(dx,dy)>4)drag.moved=true;
   if(drag.type==='pan'){view.x=drag.x+dx;view.y=drag.y+dy;updateView();}
+  if(drag.type==='marquee'&&drag.moved){
+    const left=Math.min(drag.startX,event.clientX)-drag.rect.left,top=Math.min(drag.startY,event.clientY)-drag.rect.top,width=Math.abs(dx),height=Math.abs(dy),box=$('#marquee');
+    box.hidden=false;Object.assign(box.style,{left:left+'px',top:top+'px',width:width+'px',height:height+'px'});
+    const hits=nodesInRect(graphNodes(),{x:(left-view.x)/view.scale,y:(top-view.y)/view.scale,width:width/view.scale,height:height/view.scale});
+    setCanvasSelection(new Set([...drag.base,...hits]));paintCanvasSelection();
+  }
   if(drag.type==='node'&&drag.moved){
-    if(!cardMotion){selected=drag.id;fanPinned=null;menu=null;drawGraph();startCardMotion(drag.before,drag.id,new Set(drag.origins.keys()));}
+    if(!cardMotion){setCanvasSelection(drag.selection,drag.id);fanPinned=null;menu=null;drawGraph();startCardMotion(drag.before,drag.id,new Set(drag.origins.keys()));}
     moveBranch(p,drag.origins,dx/view.scale,dy/view.scale);paintCardPositions(cardMotion.nodes);
   }
   if(drag.type==='link'){
@@ -325,10 +358,12 @@ document.addEventListener('pointerup',event=>{
   if(!drag)return;const old=drag;drag=null;$('#surface')?.classList.remove('is-panning');
   if(old.type==='node'){
     if(old.moved&&cardMotion){
-      if(matchMedia('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<120;i++)if(!repelCards(cardMotion.nodes,cardMotion.fixedId,{activeIds:cardMotion.activeIds,fixedIds:cardMotion.fixedIds}).size)break;paintCardPositions(cardMotion.nodes);finishCardMotion();drawGraph();}
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<120;i++)if(!repelCards(cardMotion.nodes,cardMotion.fixedId,{activeIds:cardMotion.activeIds,fixedIds:cardMotion.fixedIds,gap:112}).size)break;paintCardPositions(cardMotion.nodes);finishCardMotion();drawGraph();}
       else cardMotion.released=true;
-    }else selectNode(old.id);
+    }else selectNode(old.id,old.additive);
   }
+  if(old.type==='pick'&&!old.moved)selectNode(old.id);
+  if(old.type==='marquee'){$('#marquee').hidden=true;$('#surface').classList.remove('is-marquee');if(!old.moved)setCanvasSelection(old.base);drawGraph();}
   if(old.type==='pan'&&!old.moved){if(!event.target.closest('[data-node],[data-edge]')){menu=null;fanPinned=null;$$('.fan-pinned').forEach(el=>el.classList.remove('fan-pinned'));drawNodePanel();}}
   if(old.type==='link'){$('#link-preview').innerHTML='';const target=document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-node]');if(old.moved){connecting=null;drawGraph();if(target&&target.dataset.node!==old.id)combine(old.id,target.dataset.node);}else{connecting=old.id;drawGraph();}}
 });
@@ -338,7 +373,14 @@ function updateEdgePositions(positions=graphNodes()){
   for(const group of $$('.edge-group')){const edge=edgeIndex.get(group.dataset.edge),a=nodeIndex.get(edge.from),b=nodeIndex.get(edge.to),c=curve(a,b);$$('path',group).forEach(path=>path.setAttribute('d',c.d));$('.edge-label',group).setAttribute('transform',`translate(${c.mx},${c.my})`);}
   const previews=$$('.pending-connector');if(pending?.positions)previews.forEach((el,i)=>{const source=p.nodes.find(n=>n.id===pending.sourceIds[i]);if(source)el.setAttribute('d',curve(source,pending.positions[0]).d);});
 }
-document.addEventListener('pointercancel',()=>{if(cordDrag){cordDrag.pull.classList.remove('is-dragging');cordDrag.pull.style.removeProperty('--cord-offset');cordDrag=null;}if(drag){const before=drag.type==='node'&&drag.moved?drag.before:null;finishCardMotion(false);drag=null;connecting=null;if(before){p=before;persist();}$('#surface')?.classList.remove('is-panning');if($('#link-preview'))$('#link-preview').innerHTML='';if(screen==='workspace')drawGraph();}});
+function cancelCanvasDrag(){
+  if(!drag)return;const old=drag,before=old.type==='node'&&old.moved?old.before:null;
+  finishCardMotion(false);drag=null;connecting=null;if(before){p=before;persist();}
+  if(old.oldSelection)setCanvasSelection(old.oldSelection);
+  $('#surface')?.classList.remove('is-panning','is-marquee');if($('#marquee'))$('#marquee').hidden=true;if($('#link-preview'))$('#link-preview').innerHTML='';
+  if(screen==='workspace')drawGraph();
+}
+document.addEventListener('pointercancel',()=>{if(cordDrag){cordDrag.pull.classList.remove('is-dragging');cordDrag.pull.style.removeProperty('--cord-offset');cordDrag=null;}cancelCanvasDrag();});
 document.addEventListener('click',event=>{
   const action=event.target.closest('[data-action]');if(action){event.stopPropagation();if(action.dataset.action==='shelf'&&suppressCordClick){suppressCordClick=false;return;}dispatch(action.dataset.action,action);return;}
   const edge=event.target.closest('[data-edge]');if(edge){const e=p.edges.find(v=>v.id===edge.dataset.edge);openModal('edge',e);}
@@ -352,7 +394,8 @@ function dispatch(action,el){
   try{switch(action){
     case'home':pending?.controller.abort();pending=null;persist();screen='home';modal=null;overlays.innerHTML='';render();break;
     case'new-project':openModal('new-project');break;
-    case'open-project':openProject(projects.find(v=>v.id===id));break;
+    case'open-projects':openModal('open-projects');break;
+    case'open-project':closeModal();openProject(projects.find(v=>v.id===id));break;
     case'delete-project':openModal('delete-project',id);break;
     case'import':$('#file-import').click();break;
     case'demo':openDemo();break;
@@ -367,13 +410,13 @@ function dispatch(action,el){
     case'arrange':{const before=clone(p.nodes);commit(()=>arrangeByMainline(p));menu=null;fanPinned=null;connecting=null;assigning=null;drawGraph();animateLayout(before);revealCards(visibleNodes(p,{focusId,showHidden}));toast('已按主线整理，可撤销恢复原布局。');break;}
     case'zoom-in':zoomBy(1.16);break;
     case'zoom-out':zoomBy(1/1.16);break;
-    case'undo':if(history.length){future.push(clone(p));p=history.pop();if(!p.nodes.some(n=>n.id===selected))selected=rootOf(p).id;if(!p.nodes.some(n=>n.id===focusId))focusId=null;assigning=null;connecting=null;persist();renderWorkspace();toast('已撤销');}break;
-    case'redo':if(future.length){history.push(clone(p));p=future.pop();if(!p.nodes.some(n=>n.id===selected))selected=rootOf(p).id;if(!p.nodes.some(n=>n.id===focusId))focusId=null;assigning=null;connecting=null;persist();renderWorkspace();toast('已重做');}break;
+    case'undo':if(history.length){future.push(clone(p));p=history.pop();if(!p.nodes.some(n=>n.id===selected))selectOnly(rootOf(p).id);if(!p.nodes.some(n=>n.id===focusId))focusId=null;assigning=null;connecting=null;persist();renderWorkspace();toast('已撤销');}break;
+    case'redo':if(future.length){history.push(clone(p));p=future.pop();if(!p.nodes.some(n=>n.id===selected))selectOnly(rootOf(p).id);if(!p.nodes.some(n=>n.id===focusId))focusId=null;assigning=null;connecting=null;persist();renderWorkspace();toast('已重做');}break;
     case'count':p.generationCount=Number(el.dataset.count);persist();renderWorkspace();break;
-    case'node-menu':{const same=selected===id;selected=id;fanPinned=null;menu=menu==='node'&&same?null:'node';drawGraph();break;}
+    case'node-menu':{const same=selected===id;selectOnly(id);fanPinned=null;menu=menu==='node'&&same?null:'node';drawGraph();break;}
     case'close-menu':menu=null;drawNodePanel();break;
     case'expand':fanPinned=null;generate(id,el.dataset.kind);break;
-    case'expand-same':{const n=p.nodes.find(v=>v.id===id);selected=id;if(n.kind==='root'){menu=null;fanPinned=fanPinned===id?null:id;drawGraph();}else generate(id,n.kind);break;}
+    case'expand-same':{const n=p.nodes.find(v=>v.id===id);selectOnly(id);if(n.kind==='root'){menu=null;fanPinned=fanPinned===id?null:id;drawGraph();}else generate(id,n.kind);break;}
     case'favorite':{let result;commit(()=>result=favoriteNode(p,id));drawGraph();toast(result?'已留下这个方向，完整路径和理由也一起保存了。':'已取消收藏');break;}
     case'edit':openModal('edit',p.nodes.find(n=>n.id===id));break;
     case'details':openModal('node-detail',p.nodes.find(n=>n.id===(id||selected)));break;
@@ -381,20 +424,24 @@ function dispatch(action,el){
     case'connect':connecting=id;assigning=null;menu=null;drawGraph();break;
     case'cancel-selection':assigning=null;connecting=null;drawGraph();break;
     case'cancel-generation':pending?.controller.abort();clearPending();break;
-    case'locate':if(assigning||connecting){selectNode(id);centerNode(id);}else{selected=id;menu=null;drawGraph();centerNode(id);}break;
-    case'focus':focusId=id;selected=id;menu=null;renderWorkspace();fitView();break;
+    case'locate':if(assigning||connecting){selectNode(id);centerNode(id);}else{selectOnly(id);menu=null;drawGraph();centerNode(id);}break;
+    case'focus':focusId=id;selectOnly(id);menu=null;renderWorkspace();fitView();break;
     case'unfocus':focusId=null;renderWorkspace();fitView();break;
     case'toggle-hidden':showHidden=!showHidden;renderWorkspace();break;
-    case'hide':commit(()=>{const n=p.nodes.find(n=>n.id===id);n.hidden=!n.hidden;});if(current().id===id&&current().hidden)selected=rootOf(p).id;menu=null;drawGraph();toast('显示状态已更新，可通过“显示已收起”恢复。');break;
+    case'hide':commit(()=>{const n=p.nodes.find(n=>n.id===id);n.hidden=!n.hidden;});if(current().id===id&&current().hidden)selectOnly(rootOf(p).id);menu=null;drawGraph();toast('显示状态已更新，可通过“显示已收起”恢复。');break;
     case'delete-node':openModal('delete-node',id);break;
     case'saved-detail':openModal('saved-detail',p.favorites.find(f=>f.id===id));break;
-    case'return-to-card':closeModal();showShelf=false;renderWorkspace();selected=id;drawGraph();centerNode(id);break;
+    case'return-to-card':closeModal();showShelf=false;renderWorkspace();selectOnly(id);drawGraph();centerNode(id);break;
     case'export':openModal('export');break;
+    case'export-selection':openModal('export',{scope:'canvas'});break;
+    case'clear-canvas-selection':selectOnly(null);drawGraph();break;
+    case'export-scope-project':openModal('export',{scope:'project'});break;
+    case'export-scope-canvas':openModal('export',{scope:'canvas'});break;
     case'export-saved':openModal('export',true);break;
     case'share':openModal('share');break;
     case'close-modal':closeModal();break;
-    case'download-json':download(JSON.stringify(p,null,2),p.title+'.json','application/json');toast('项目已导出，可重新打开继续探索。');break;
-    case'download-md':download(selectedMarkdown(),p.title+'.md','text/markdown;charset=utf-8');toast('方向与细化理由已导出。');break;
+    case'download-json':{const scope=exportScope(),value=scope.mode==='canvas'?selectionExport(p,scope.ids):p;download(JSON.stringify(value,null,2),exportTitle()+'.json','application/json');toast(scope.mode==='canvas'?'选区已导出，可重新导入继续探索。':'项目已导出，可重新打开继续探索。');break;}
+    case'download-md':download(selectedMarkdown(),exportTitle()+'.md','text/markdown;charset=utf-8');toast('方向与细化理由已导出。');break;
     case'download-png':exportPng();break;
     case'print':printProject();break;
     case'copy-share':copyShare();break;
@@ -437,6 +484,11 @@ function openModal(kind,data=null){
   menu=null;fanPinned=null;drawNodePanel();
   if(kind==='saved-detail'){openDirection(data);return;}
   lastFocus=document.activeElement;modal={kind,data};let body='',footer='',title='',wide=false;
+  if(kind==='open-projects'){
+    title='打开项目';wide=true;
+    body=`<div class="project-picker">${projects.length?`<div class="project-picker-grid">${projects.map(project=>`<article class="project-card"><button class="project-open" data-action="open-project" data-id="${project.id}"><span class="project-card-icon">${icon('branch')}</span><h3>${esc(project.title)}</h3><p>${esc(project.description)}</p><footer><span>${project.nodes.length} 张卡片</span><time>${new Date(project.updatedAt).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</time></footer></button><button class="project-delete" data-action="delete-project" data-id="${project.id}" aria-label="删除项目 ${esc(project.title)}">×</button></article>`).join('')}</div>`:'<p class="picker-empty">还没有保存的项目，可以从文件打开。</p>'}</div>`;
+    footer=button('从文件打开','import',{icon:'file'})+button('关闭','close-modal');
+  }
   if(kind==='new-project'){
     title='从一点好奇开始';body=`<p class="modal-intro">一个模糊兴趣、一段日常观察，或者一份作业要求，都可以。</p><form id="new-project-form"><label class="field"><span>你想探索什么？</span><textarea id="project-description" rows="5" maxlength="2000" required placeholder="例如：我想探索人与城市的关系，做一个让公共空间更有余地的交互设计项目。"></textarea></label><label class="field"><span>给这次探索起个名字 <em>选填</em></span><input id="project-name" maxlength="50" placeholder="我的下一点想法"></label><div class="form-actions">${button('取消','close-modal')}<button type="submit" class="button primary">创建选题中心 ${icon('arrow')}</button></div></form>`;
   }
@@ -459,7 +511,11 @@ function openModal(kind,data=null){
     title='这两个想法为什么相连';const a=p.nodes.find(n=>n.id===data.from),b=p.nodes.find(n=>n.id===data.to);body=`<div class="edge-detail"><div>${chip(a.kind)}<strong>${esc(a.title)}</strong></div><span class="edge-detail-arrow">↓ ${esc(data.relation)}</span><div>${chip(b.kind)}<strong>${esc(b.title)}</strong></div></div><div class="detail-reason"><span>关联理由</span><p>${esc(data.rationale||b.rationale)}</p></div>`;footer=button('关闭','close-modal')+button('查看下层卡片','return-to-card',{id:b.id,class:'primary'});
   }
   if(kind==='export'){
-    title=data?'导出选中的方向':'把想法带走';body=`<p class="modal-intro">${data?`将选中的 ${savedSelection.size} 个方向及其路径导出。`:'保存完整探索，或把选题方向交给下一步工作。'}</p><div class="export-options">${data?'':`<button data-action="download-json">${icon('branch')}<div><strong>项目文件</strong><span>JSON · 包含画布、连线、收藏，可重新打开</span></div>${icon('arrow')}</button>`}<button data-action="download-md">${icon('file')}<div><strong>方向说明</strong><span>Markdown · 保留内容、上游路径与细化理由</span></div>${icon('arrow')}</button>${data?'':`<button data-action="download-png">${icon('scene')}<div><strong>画布图片</strong><span>PNG · 导出当前可见的探索结构</span></div>${icon('arrow')}</button><button data-action="print">${icon('file')}<div><strong>保存为 PDF</strong><span>打开打印预览，选择“存储为 PDF”</span></div>${icon('arrow')}</button>`}</div>`;footer=button('关闭','close-modal');
+    const mode=data===true?'favorites':data?.scope||(canvasSelection.size>1?'canvas':'project');
+    modal.exportScope={mode,ids:[...canvasSelection]};
+    title=mode==='favorites'?'导出收藏方向':'导出';
+    const scopePicker=mode==='favorites'?'':`<div class="export-scope segmented" role="group" aria-label="导出范围">${button('整个项目','export-scope-project',{class:mode==='project'?'selected':'',extra:`aria-pressed="${mode==='project'}"`})}${button('选中的 '+canvasSelection.size+' 张','export-scope-canvas',{class:mode==='canvas'?'selected':'',disabled:!canvasSelection.size,extra:`aria-pressed="${mode==='canvas'}"`})}</div>`;
+    body=scopePicker+`<p class="modal-intro">${mode==='favorites'?`导出选中的 ${savedSelection.size} 个收藏方向及其路径。`:mode==='canvas'?'只导出选中的卡片及它们之间的连线。':'导出整个项目；画布图片使用当前可见范围。'}</p><div class="export-options">${mode==='favorites'?'':`<button data-action="download-json">${icon('branch')}<div><strong>${mode==='canvas'?'选区文件':'项目文件'}</strong><span>JSON · ${mode==='canvas'?'只含选区，可导入为新的探索项目':'包含画布、连线、收藏，可重新打开'}</span></div>${icon('arrow')}</button>`}<button data-action="download-md">${icon('file')}<div><strong>方向说明</strong><span>Markdown · ${mode==='canvas'?'选中卡片的内容、内部关联与理由':'保留内容、上游路径与细化理由'}</span></div>${icon('arrow')}</button>${mode==='favorites'?'':`<button data-action="download-png">${icon('scene')}<div><strong>画布图片</strong><span>PNG · ${mode==='canvas'?'只包含选中的卡片与内部连线':'导出当前可见的探索结构'}</span></div>${icon('arrow')}</button><button data-action="print">${icon('file')}<div><strong>保存为 PDF</strong><span>打开打印预览，选择“存储为 PDF”</span></div>${icon('arrow')}</button>`}</div>`;footer=button('关闭','close-modal');
   }
   if(kind==='share'){
     title='分享这次探索';body=`<p class="modal-intro">把当前探索保存为链接快照。接收者打开后，会获得一份可独立编辑的副本。</p><div class="original-idea"><strong>${esc(p.title)}</strong><p>${p.nodes.length} 个想法 · ${p.favorites.length} 个已收藏方向</p></div><p class="field-hint">${browserModel?'接收者可直接打开链接。链接包含当前项目副本，请仅分享你愿意公开的内容；每位访客单独配置自己的 AI。':'原型运行在本地。接收者需要能够访问同一个网页服务；跨设备分享也可以先导出项目文件。'}</p>`;footer=button('导出项目文件','download-json')+button('复制链接','copy-share',{class:'primary'});
@@ -482,36 +538,55 @@ function bindModal(kind,data){
   $('#model-form')?.addEventListener('submit',async e=>{e.preventDefault();const submit=$('#save-model'),error=$('#model-error');submit.disabled=true;submit.textContent='正在验证…';error.hidden=true;try{model=await api('/model',connectionInput());const work=queuedAfterModel;closeModal();updateModelBadge();toast(model.verified?'已验证模型名称，配置已保存。':'模型配置已保存。');work?.();}catch(err){error.hidden=false;error.textContent=err.message;submit.disabled=false;submit.textContent='重试保存';}});
   $('#edit-form')?.addEventListener('submit',e=>{e.preventDefault();const title=$('#edit-title').value.trim(),description=$('#edit-description').value.trim(),rationale=$('#edit-rationale').value.trim();if(!title)return;commit(()=>{const node=p.nodes.find(n=>n.id===data.id);Object.assign(node,{title,description,rationale});p.edges.filter(e=>e.to===node.id).forEach(e=>e.rationale=rationale);});closeModal();drawGraph();toast('想法与关联理由已更新。');});
   $('#context-form')?.addEventListener('submit',e=>{e.preventDefault();const title=$('#context-title').value.trim(),context=$('#context-text').value.trim();commit(()=>Object.assign(p,{title,context}));closeModal();renderWorkspace();toast('背景已保存，后续生成会使用这些条件。');});
-  $('#confirm-delete')?.addEventListener('click',()=>{if(kind==='delete-node'){commit(()=>removeBranch(p,data));if(!p.nodes.some(n=>n.id===focusId))focusId=null;selected=rootOf(p).id;closeModal();renderWorkspace();toast('已删除分支，可以撤销恢复。');}else{projects=projects.filter(v=>v.id!==data);p=null;persist();closeModal();renderHome();}});
+  $('#confirm-delete')?.addEventListener('click',()=>{if(kind==='delete-node'){commit(()=>removeBranch(p,data));if(!p.nodes.some(n=>n.id===focusId))focusId=null;selectOnly(rootOf(p).id);closeModal();renderWorkspace();toast('已删除分支，可以撤销恢复。');}else{projects=projects.filter(v=>v.id!==data);p=null;persist();closeModal();renderHome();}});
 }
 document.addEventListener('keydown',e=>{
   if(modal&&e.key==='Tab'){const items=$$('button:not([disabled]),input,textarea,select,[tabindex="0"]',$('.modal')),first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}return;}
-  if(e.key==='Escape'){if(modal){closeModal();queuedAfterModel=null;}else if(showShelf){toggleShelf();}else{menu=null;fanPinned=null;connecting=null;assigning=null;if(focusId){focusId=null;renderWorkspace();}else if(screen==='workspace')drawGraph();}return;}
+  if(e.key==='Escape'){if(modal){closeModal();queuedAfterModel=null;}else if(showShelf){toggleShelf();}else{menu=null;fanPinned=null;connecting=null;assigning=null;if(drag){cancelCanvasDrag();return;}selectOnly(null);if(focusId){focusId=null;renderWorkspace();}else if(screen==='workspace')drawGraph();}return;}
   const editing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
   if((e.metaKey||e.ctrlKey)&&e.key==='Enter'&&document.activeElement?.id==='manual-text'){e.preventDefault();addManualCard();return;}
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'&&screen==='workspace'){e.preventDefault();$('#node-search').focus();return;}
   if(editing||modal)return;
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='a'&&screen==='workspace'){e.preventDefault();setCanvasSelection(graphNodes().map(n=>n.id));menu=null;fanPinned=null;drawGraph();return;}
+  if(screen==='workspace'&&!e.metaKey&&!e.ctrlKey&&['v','h'].includes(e.key.toLowerCase())){e.preventDefault();dispatch(e.key.toLowerCase()==='h'?'tool-hand':'tool-select');return;}
+  if(screen==='workspace'&&canvasSelection.size&&!pending&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+    e.preventDefault();finishCardMotion();stopLayoutAnimation();const before=clone(p.nodes),amount=e.shiftKey?80:20,origins=branchPositions(p,[...canvasSelection]);
+    commit(()=>{moveBranch(p,origins,e.key==='ArrowLeft'?-amount:e.key==='ArrowRight'?amount:0,e.key==='ArrowUp'?-amount:e.key==='ArrowDown'?amount:0);spreadCrowdedCards(p.nodes,new Set(origins.keys()));});drawGraph();animateLayout(before);return;
+  }
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&p){e.preventDefault();dispatch(e.shiftKey?'redo':'undo');return;}
   if(e.code==='Space'&&screen==='workspace'){spaceHeld=true;e.preventDefault();$('#surface').classList.add('space-pan');}
-  if(e.key==='Enter'&&document.activeElement?.matches('[data-node]')){e.preventDefault();selectNode(document.activeElement.dataset.node);}
+  if(e.key==='Enter'&&document.activeElement?.matches('[data-node]')){e.preventDefault();selectNode(document.activeElement.dataset.node,e.shiftKey);}
   if(e.key==='Enter'&&document.activeElement?.matches('[data-handle]')){e.preventDefault();connecting=document.activeElement.dataset.handle;assigning=null;fanPinned=null;drawGraph();}
   if(e.key==='Enter'&&document.activeElement?.matches('[data-edge]')){e.preventDefault();openModal('edge',p.edges.find(v=>v.id===document.activeElement.dataset.edge));}
 });
 document.addEventListener('keyup',e=>{if(e.code==='Space'){spaceHeld=false;$('#surface')?.classList.remove('space-pan');}});
 function download(content,filename,type){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([content],{type}));a.href=url;a.download=filename.replace(/[\\/:*?"<>|]/g,'-');a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function selectedMarkdown(){const chosen=savedSelection.size?p.favorites.filter(f=>savedSelection.has(f.id)):null;return chosen?`# ${p.title}\n\n`+chosen.map(f=>toMarkdown(p,f)).join('\n\n---\n\n'):toMarkdown(p);}
+function exportScope(){return modal?.kind==='export'?modal.exportScope||{mode:'project'}:{mode:'project'};}
+function exportTitle(){return p.title+(exportScope().mode==='canvas'?' · 选区':'');}
+function exportNodes(){const scope=exportScope();return scope.mode==='canvas'?p.nodes.filter(n=>scope.ids.includes(n.id)):visibleNodes(p,{focusId,showHidden});}
+function selectedMarkdown(){
+  const scope=exportScope();
+  if(scope.mode==='canvas')return toMarkdown(selectionExport(p,scope.ids));
+  if(scope.mode==='favorites')return `# ${p.title}\n\n`+p.favorites.filter(f=>savedSelection.has(f.id)).map(f=>toMarkdown(p,f)).join('\n\n---\n\n');
+  return toMarkdown(p);
+}
 async function copyText(value){try{await navigator.clipboard.writeText(value);toast('已复制');}catch{toast('浏览器未允许复制，请使用导出文件。','error');}}
 async function copyShare(){const bytes=new TextEncoder().encode(JSON.stringify(p));if(bytes.length>450000)return toast('项目内容较多，请通过项目文件分享。','error');let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);await copyText(new URL('./',location.href).href+'#project='+btoa(binary));}
-$('#file-import').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>5e6)throw new Error('项目文件过大，请选择小于 5MB 的文件');const project=validateProject(JSON.parse(await file.text()));project.id=uid();project.title+=' · 导入';projects.unshift(project);openProject(project);persist();toast('项目已打开，可以继续探索。');}catch(error){toast(error.message,'error');}e.target.value='';});
+$('#file-import').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>5e6)throw new Error('项目文件过大，请选择小于 5MB 的文件');const value=JSON.parse(await file.text()),project=value.format==='topic-explorer-selection'?importSelection(value):validateProject(value);project.id=uid();project.title+=' · 导入';projects.unshift(project);closeModal();openProject(project);persist();toast('项目已打开，可以继续探索。');}catch(error){toast(error.message,'error');}e.target.value='';});
 function wrapText(ctx,value,width,maxLines=3){const lines=[];let line='';for(const char of String(value)){if(ctx.measureText(line+char).width>width){lines.push(line);line=char;if(lines.length>=maxLines){lines[lines.length-1]=lines.at(-1).slice(0,-1)+'…';return lines;}}else line+=char;}if(line)lines.push(line);return lines;}
 async function exportPng(){
-  const nodes=visibleNodes(p,{focusId,showHidden}),b=boundsOf(nodes),pad=60,s=Math.min(2,6000/(b.width+pad*2)),canvas=document.createElement('canvas');canvas.width=(b.width+pad*2)*s;canvas.height=(b.height+pad*2+90)*s;const ctx=canvas.getContext('2d');ctx.scale(s,s);ctx.fillStyle='#F5F5F7';ctx.fillRect(0,0,canvas.width/s,canvas.height/s);ctx.fillStyle='#1D1D1F';ctx.font='600 24px -apple-system, BlinkMacSystemFont, sans-serif';ctx.fillText(p.title,pad,43);ctx.translate(pad-b.x,pad+65-b.y);const ids=new Set(nodes.map(n=>n.id));
+  const title=exportTitle(),nodes=exportNodes(),b=boundsOf(nodes),pad=60,s=Math.min(2,6000/(b.width+pad*2)),canvas=document.createElement('canvas');canvas.width=(b.width+pad*2)*s;canvas.height=(b.height+pad*2+90)*s;const ctx=canvas.getContext('2d');ctx.scale(s,s);ctx.fillStyle='#F5F5F7';ctx.fillRect(0,0,canvas.width/s,canvas.height/s);ctx.fillStyle='#1D1D1F';ctx.font='600 24px -apple-system, BlinkMacSystemFont, sans-serif';ctx.fillText(title,pad,43);ctx.translate(pad-b.x,pad+65-b.y);const ids=new Set(nodes.map(n=>n.id));
   for(const e of p.edges.filter(e=>ids.has(e.from)&&ids.has(e.to))){const a=p.nodes.find(n=>n.id===e.from),bn=p.nodes.find(n=>n.id===e.to);ctx.strokeStyle=e.merged?'#8b7fc7':'#b5bdca';ctx.lineWidth=1.5;ctx.stroke(new Path2D(curve(a,bn).d));}
   const colors={root:'#007AFF',scene:'#8A6BD0',pain:'#D47D42',people:'#328A82'};
   for(const n of nodes){ctx.fillStyle='#FFFFFF';ctx.strokeStyle='#E1E3E8';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(n.x,n.y,CARD.width,CARD.height,18);ctx.fill();ctx.stroke();ctx.fillStyle=colors[n.kind];ctx.font='500 12px -apple-system,sans-serif';ctx.fillText(KINDS[n.kind].label,n.x+18,n.y+26);ctx.fillStyle='#1D1D1F';ctx.font='600 16px -apple-system,sans-serif';wrapText(ctx,n.title,CARD.width-36,2).forEach((line,i)=>ctx.fillText(line,n.x+18,n.y+55+i*23));ctx.fillStyle='#6E6E73';ctx.font='12px -apple-system,sans-serif';wrapText(ctx,n.description,CARD.width-36,2).forEach((line,i)=>ctx.fillText(line,n.x+18,n.y+105+i*18));}
-  canvas.toBlob(blob=>{if(!blob)return toast('图片导出失败，请重试。','error');download(blob,p.title+'.png','image/png');toast('画布图片已导出。');},'image/png');
+  canvas.toBlob(blob=>{if(!blob)return toast('图片导出失败，请重试。','error');download(blob,title+'.png','image/png');toast('画布图片已导出。');},'image/png');
 }
-function printProject(){const old=$('#print-content');old?.remove();const print=document.createElement('section');print.id='print-content';print.innerHTML=`<h1>${esc(p.title)}</h1><p>${esc(p.description)}</p>${(p.favorites.length?p.favorites.map(f=>`<article><h2>${esc(f.title)}</h2><p>${esc(f.description)}</p><p>${esc(f.rationale)}</p>${pathMarkup(f.snapshot)}</article>`):p.nodes.map(n=>`<article><h2>${esc(n.title)}</h2><p>${esc(n.description)}</p><p>${esc(n.rationale)}</p></article>`)).join('')}`;document.body.appendChild(print);window.print();}
+function printProject(){
+  const old=$('#print-content');old?.remove();const print=document.createElement('section');print.id='print-content';
+  const scope=exportScope(),nodes=scope.mode==='canvas'?exportNodes():p.nodes;
+  const content=scope.mode!=='canvas'&&p.favorites.length?p.favorites.map(f=>`<article><h2>${esc(f.title)}</h2><p>${esc(f.description)}</p><p>${esc(f.rationale)}</p>${pathMarkup(f.snapshot)}</article>`):nodes.map(n=>`<article><h2>${esc(n.title)}</h2><p>${esc(n.description)}</p><p>${esc(n.rationale)}</p></article>`);
+  print.innerHTML=`<h1>${esc(exportTitle())}</h1>${scope.mode==='canvas'?'':`<p>${esc(p.description)}</p>`}${content.join('')}`;document.body.appendChild(print);window.print();
+}
 window.addEventListener('resize',()=>{if(screen==='workspace')drawNodePanel();});
 render();refreshModel();
 if(location.hash.startsWith('#project=')){try{const binary=atob(location.hash.slice(9));const value=JSON.parse(new TextDecoder().decode(Uint8Array.from(binary,c=>c.charCodeAt(0)))),project=validateProject(value);project.id=uid();project.title+=' · 副本';projects.unshift(project);openProject(project);persist();window.history.replaceState(null,'',location.pathname);}catch{toast('分享链接无法打开，可以让对方导出项目文件。','error');}}

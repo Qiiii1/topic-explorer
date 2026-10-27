@@ -228,3 +228,52 @@
 .idea-card.is-connecting.drop-target .connection-target-label{background:#007aff;color:#fff;border-color:#007aff}
 .idea-card.is-connecting:after{display:none}
 @media(prefers-reduced-motion:reduce){.idea-card.is-connecting{transition:none}}
+
+/* Two quiet entry points, with saved work disclosed only when opening a project. */
+.home-launcher{min-height:100dvh;display:grid;place-items:center;padding:28px;background:#f5f5f7}
+.launch-actions{display:flex;gap:18px;align-items:center;transform:translateY(-20px)}
+.launch-button{display:flex;align-items:center;justify-content:center;gap:12px;min-width:206px;min-height:76px;padding:20px 30px;border-radius:18px;font-size:16px;font-weight:550;letter-spacing:.1px;border:1px solid #dddfe7;background:#fff;box-shadow:0 3px 12px #23334f05;transition:transform 160ms,box-shadow 160ms,background 160ms}
+.launch-button .icon,.launch-button .action-glyph{width:23px;height:23px}
+.launch-new{background:#007aff;color:#fff;border-color:#007aff;box-shadow:0 5px 18px #007aff1b}
+.launch-open{color:#424550}
+.launch-button:hover{transform:translateY(-2px);box-shadow:0 8px 24px #23334f10;filter:none!important}
+.launch-new:hover{background:#0874eb}.launch-button:active{transform:translateY(0) scale(.98)}
+.project-picker{max-height:min(55dvh,460px);overflow:auto;padding:2px 3px 8px}
+.project-picker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.project-picker .project-card{background:#fff;border:1px solid #e3e5ec;box-shadow:0 3px 12px #23334f05;border-radius:16px;transition:border-color 160ms,box-shadow 160ms}
+.project-picker .project-card:hover{border-color:#abcaff;box-shadow:0 4px 18px #007aff0b}
+.project-picker .project-open{text-align:left;width:100%;min-height:178px;padding:20px}
+.project-picker .project-card h3{font-size:14px;line-height:1.5}.project-picker .project-card p{font-size:11px;line-height:1.7;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;height:38px;margin-top:9px;color:#92949f}
+.project-picker .project-card footer{display:flex;justify-content:space-between;margin-top:17px;color:#9ca0ac;font-size:10px}
+.picker-empty{padding:42px 16px 52px;text-align:center;font-size:13px;color:#9196a3}
+
+/* Coloured actions stay distinct from the blue selection and connection affordances. */
+.action-glyph{display:block;width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.idea-card .node-expand{background:color-mix(in srgb,var(--card-ink,#007aff) 13%,white);border:1px solid color-mix(in srgb,var(--card-ink,#007aff) 22%,white);color:var(--card-ink,#007aff);box-shadow:0 3px 8px #23334f12}
+.idea-card .node-expand .action-glyph{width:26px;height:26px;stroke-width:2.2}
+.idea-card .card-star{background:#fff9ed;border:1px solid #e8cd94;color:#bd872b;box-shadow:0 3px 8px #8b63121a}
+.idea-card .card-star .action-glyph{width:24px;height:24px;stroke-width:1.7}
+.idea-card .card-star.is-saved{background:#edb842;border-color:#dba52e;color:#fff}
+.idea-card .card-star.is-saved .action-glyph{fill:currentColor;stroke:currentColor}
+.shelf-pull:before{background:#85858d}
+
+/* Figma-style selection: marquee in screen space, group bounds in canvas space. */
+.marquee{position:absolute;z-index:35;pointer-events:none;border:1px solid #007aff;background:#007aff13;border-radius:1px}
+.selection-bounds{position:absolute;z-index:7;pointer-events:none;border:1.5px solid #007aff}
+.selection-bounds i{position:absolute;width:7px;height:7px;background:#fff;border:1.5px solid #007aff}
+.selection-bounds i:nth-child(1){left:-4px;top:-4px}.selection-bounds i:nth-child(2){right:-4px;top:-4px}.selection-bounds i:nth-child(3){left:-4px;bottom:-4px}.selection-bounds i:nth-child(4){right:-4px;bottom:-4px}
+.canvas-selection-bar{position:absolute;z-index:16;left:50%;bottom:180px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:6px 9px 6px 16px;border-radius:12px;white-space:nowrap;color:#7185a4;font-size:11px}
+.canvas-selection-bar>span{margin-right:7px}.canvas-selection-bar strong{font-weight:650;color:#007aff}
+.canvas-selection-bar .button{font-size:11px;min-height:34px;padding:6px 10px}
+.canvas-selection-bar [data-action=export-selection]{color:#007aff;background:#edf5ff}
+.idea-card.is-selected.off-path{opacity:1}
+.canvas-surface.is-marquee{cursor:crosshair}
+.canvas-surface.is-marquee .dimension-option,.canvas-world:has(.selection-bounds:not([hidden])) .dimension-option{pointer-events:none!important;transform:translateY(calc(-13px + var(--fan-index)*3px)) rotate(calc(-3deg + var(--fan-index)*3deg))!important}
+.canvas-surface.is-marquee .dimension-deck:before,.canvas-world:has(.selection-bounds:not([hidden])) .dimension-deck:before{pointer-events:none!important}
+.export-scope{display:flex;gap:4px;padding:4px;margin-bottom:18px;background:#eceef4;border-radius:11px}
+.export-scope .button{flex:1;font-size:12px;min-height:38px}.export-scope .button.selected{background:#fff;color:#007aff;box-shadow:0 2px 7px #23334f0b}
+@media(max-width:620px){.launch-actions{flex-direction:column;gap:14px}.launch-button{min-width:230px;min-height:70px}.project-picker-grid{grid-template-columns:1fr}.project-picker .project-open{min-height:160px}.canvas-selection-bar{bottom:155px;max-width:calc(100% - 28px);gap:3px;padding:6px 8px 6px 12px}.canvas-selection-bar .button{font-size:10px;padding:6px 8px}.canvas-selection-bar>span{font-size:10px;margin-right:4px}.export-scope .button{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.launch-button{transition:none}}
+.canvas-world:has(.selection-bounds:not([hidden])) .connection-handle{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
+.idea-card .card-star.is-saved{color:#6d4600}
+.add-card-button{color:#007aff;background:#eaf3ff}.add-card-button .action-glyph{width:22px;height:22px}

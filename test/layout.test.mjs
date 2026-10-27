@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CARD,createProject,rootOf,appendGenerated,appendManual,mergeNodes,getPaths,validateProject,planNearbySpace,branchPositions,moveBranch,arrangeByMainline,canCombine,repelCards} from '../app/domain.js';
+import {CARD,LAYOUT_GAP,createProject,rootOf,appendGenerated,appendManual,mergeNodes,getPaths,validateProject,planNearbySpace,branchPositions,moveBranch,arrangeByMainline,canCombine,repelCards,spreadCrowdedCards} from '../app/domain.js';
 
 const overlaps=(a,b,gap=0)=>Math.abs(a.x-b.x)<CARD.width+gap&&Math.abs(a.y-b.y)<CARD.height+gap;
 
@@ -11,7 +11,7 @@ test('连续生成 3/6/10 张候选始终留在来源附近，原有卡片让位
       const {positions}=planNearbySpace(p.nodes,root,count);
       assert.ok(positions.some(n=>n.x<root.x)&&positions.some(n=>n.x>root.x));
       assert.ok(positions.some(n=>n.y<root.y)&&positions.some(n=>n.y>root.y));
-      assert.ok(positions.every(n=>Math.abs(n.x-root.x)<=2*(CARD.width+72)&&Math.abs(n.y-root.y)<=2*(CARD.height+88)));
+      assert.ok(positions.every(n=>Math.abs(n.x-root.x)<=2*LAYOUT_GAP.x&&Math.abs(n.y-root.y)<=2*LAYOUT_GAP.y));
       const created=appendGenerated(p,root.id,'scene',positions.map((_,i)=>({title:`候选 ${i}`,rationale:'由上层细化'})),'live',positions);
       assert.deepEqual({x:created[0].x,y:created[0].y},positions[0]);
       for(let i=0;i<p.nodes.length;i++)for(let j=i+1;j<p.nodes.length;j++)assert.equal(overlaps(p.nodes[i],p.nodes[j],28),false);
@@ -82,4 +82,16 @@ test('拖动时固定所拖卡片，邻近卡片连锁避让，远处原有布�
   assert.equal(overlaps(nodes[1],nodes[2],35),false);
   assert.deepEqual(nodes.slice(3),far);
   assert.ok(nodes.every(n=>Number.isFinite(n.x)&&Number.isFinite(n.y)));
+});
+
+
+test('自动疏散拥挤区域：中心固定、预留间距、布局有限且不更改关联',()=>{
+  const p=createProject('拥挤区域'),root=rootOf(p);
+  const kids=appendGenerated(p,root.id,'scene',Array.from({length:10},(_,i)=>({title:'卡片'+i})));
+  for(const [i,n] of kids.entries()){n.x=10+(i%4)*80;n.y=10+Math.floor(i/4)*60;}
+  const edges=structuredClone(p.edges),before={x:root.x,y:root.y};
+  assert.ok(spreadCrowdedCards(p.nodes,new Set([root.id])).size>0);
+  assert.deepEqual({x:root.x,y:root.y},before);assert.deepEqual(p.edges,edges);
+  for(let i=0;i<p.nodes.length;i++)for(let j=i+1;j<p.nodes.length;j++)assert.equal(overlaps(p.nodes[i],p.nodes[j],110),false);
+  assert.ok(p.nodes.every(n=>Number.isFinite(n.x)&&Number.isFinite(n.y)));
 });

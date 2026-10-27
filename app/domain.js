@@ -46,7 +46,8 @@ function freePosition(project, x, y) {
   while (project.nodes.some(n => Math.abs(n.x - x) < CARD.width + 30 && Math.abs(n.y - y) < CARD.height + 28) && attempts++ < 100) y += CARD.height + 38;
   return { x, y };
 }
-const layoutGap = {x: CARD.width + 72, y: CARD.height + 88};
+export const LAYOUT_GAP = {x: CARD.width + 132, y: CARD.height + 144};
+const layoutGap = LAYOUT_GAP;
 const collides = (a, b) => Math.abs(a.x-b.x) < layoutGap.x-0.01 && Math.abs(a.y-b.y) < layoutGap.y-0.01;
 // Select nearby slots first; existing cards make room instead of sending new ideas away.
 export function surroundingPositions(nodes, anchor, count, phase = nodes.length * 0.73, protectedIds = new Set([anchor.id])) {
@@ -91,6 +92,10 @@ export function makeRoomForPositions(nodes, positions, protectedIds = new Set())
     position ||= {x:Math.max(...blockers.map(n=>n.x))+layoutGap.x,y:node.y};
     moves.set(node.id,position);blockers.push(position);
   }
+  const preview=nodes.map(n=>({...n,...moves.get(n.id)}));
+  const reserved=positions.map((position,i)=>({id:`reserved:${i}`,...position}));
+  spreadCrowdedCards([...preview,...reserved],new Set([...protectedIds,...reserved.map(n=>n.id)]));
+  for(let i=0;i<nodes.length;i++)if(Math.abs(preview[i].x-nodes[i].x)>.01||Math.abs(preview[i].y-nodes[i].y)>.01)moves.set(nodes[i].id,{x:preview[i].x,y:preview[i].y});
   return moves;
 }
 export function planNearbySpace(nodes, anchor, count, protectedIds = new Set([anchor.id])) {
@@ -98,7 +103,7 @@ export function planNearbySpace(nodes, anchor, count, protectedIds = new Set([an
   return {positions,moves:makeRoomForPositions(nodes,positions,protectedIds)};
 }
 export function branchPositions(project, nodeId) {
-  const ids=descendantsOf(project,nodeId);
+  const ids=new Set((Array.isArray(nodeId)?nodeId:[nodeId]).flatMap(id=>[...descendantsOf(project,id)]));
   return new Map(project.nodes.filter(n=>ids.has(n.id)).map(n=>[n.id,{x:n.x,y:n.y}]));
 }
 export function moveBranch(project, origins, dx, dy) {
@@ -112,9 +117,9 @@ export const canCombine = (a,b) => !!a&&!!b&&a.id!==b.id&&a.kind!=='root'&&a.kin
 export function arrangeByMainline(project) {
   const root=rootOf(project),index=new Map(project.nodes.map(n=>[n.id,n])),children=new Map(),heights=new Map(),depths=new Map();
   for(const node of project.nodes){const owner=node.parentIds[0];if(owner){if(!children.has(owner))children.set(owner,[]);children.get(owner).push(node);}}
-  const height=node=>{if(!heights.has(node.id))heights.set(node.id,Math.max(CARD.height+96,(children.get(node.id)||[]).reduce((sum,n)=>sum+height(n),0)));return heights.get(node.id);};
+  const height=node=>{if(!heights.has(node.id))heights.set(node.id,Math.max(LAYOUT_GAP.y,(children.get(node.id)||[]).reduce((sum,n)=>sum+height(n),0)));return heights.get(node.id);};
   const depth=node=>{if(!depths.has(node.id))depths.set(node.id,node.parentIds.length?1+Math.max(...node.parentIds.map(id=>depth(index.get(id)))):0);return depths.get(node.id);};
-  const column=CARD.width+128;
+  const column=LAYOUT_GAP.x+28;
   const place=(node,side,top,baseDepth=0,baseX=root.x)=>{
     node.x=baseX+side*(depth(node)-baseDepth)*column;
     node.y=top+(height(node)-CARD.height)/2;
@@ -153,6 +158,34 @@ export function repelCards(nodes, fixedId, {strength = 0.38, maxStep = 24, gap =
     if (!buckets.has(key)) buckets.set(key, []); buckets.get(key).push(node);
   }
   return moved;
+}
+export function spreadCrowdedCards(nodes, fixedIds = new Set()) {
+  const activeIds=new Set(nodes.map(n=>n.id)),moved=new Set();
+  for(let frame=0;frame<220;frame++){
+    const step=repelCards(nodes,null,{gap:112,fixedIds,activeIds,strength:.5,maxStep:40});
+    for(const id of step)moved.add(id);
+    if(!step.size)break;
+  }
+  return moved;
+}
+export function nodesInRect(nodes, rect) {
+  return nodes.filter(n=>n.x<rect.x+rect.width&&n.x+CARD.width>rect.x&&n.y<rect.y+rect.height&&n.y+CARD.height>rect.y).map(n=>n.id);
+}
+export function selectionExport(project, ids) {
+  const selected=new Set(ids),nodes=clone(project.nodes.filter(n=>selected.has(n.id)));
+  if(!nodes.length)throw new Error('请先框选要导出的卡片');
+  for(const n of nodes){n.parentIds=n.parentIds.filter(id=>selected.has(id));n.merged=n.parentIds.length>1;}
+  return {format:'topic-explorer-selection',version:VERSION,title:project.title+' · 选区',description:`选中的 ${nodes.length} 张卡片`,context:'',nodes,edges:clone(project.edges.filter(e=>selected.has(e.from)&&selected.has(e.to))),favorites:[]};
+}
+export function importSelection(value) {
+  if(value?.format!=='topic-explorer-selection'||value.version!==VERSION||!Array.isArray(value.nodes)||!value.nodes.length||!Array.isArray(value.edges)||typeof value.title!=='string')throw new Error('这不是有效的选区文件');
+  const project=createProject(value.description||'从选区继续探索',value.title),nodes=clone(value.nodes),edges=clone(value.edges);
+  const originalRoot=nodes.find(n=>n.kind==='root'),root=originalRoot||rootOf(project);
+  // Validate the original selection before attaching its independent entries to a new centre.
+  project.nodes=originalRoot?nodes:[root,...nodes];project.edges=edges;
+  validateProject(project);
+  if(!originalRoot)for(const n of nodes)if(!n.parentIds.length){n.parentIds=[root.id];project.edges.push({id:uid(),from:root.id,to:n.id,relation:'选区入口',rationale:n.rationale||'从导入的选区继续探索。'});}
+  return validateProject(project);
 }
 export function appendGenerated(project, parentId, kind, candidates, origin = 'demo', reserved = null) {
   const parent = project.nodes.find(n => n.id === parentId);
