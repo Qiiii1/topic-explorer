@@ -1,6 +1,9 @@
 import { KINDS, CARD, uid, clone, createProject, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, appendManual, mergeNodes, assignParent, favoriteNode, removeBranch, visibleNodes, boundsOf, validateProject, toMarkdown, planNearbySpace, branchPositions, moveBranch, arrangeByMainline, canCombine, repelCards, spreadCrowdedCards, nodesInRect, selectionExport, importSelection } from './domain.js';
 import { demoGenerate } from './demo.js';
 import { createBrowserModelClient } from './browser-model.js';
+import './vendor/liquid-glass/components.js';
+import {wheelIntent,gestureFactor,zoomView} from './canvas-gestures.js';
+import {GenerationHistory} from './generation-history.js';
 
 const $=(selector,scope=document)=>scope.querySelector(selector);
 const $$=(selector,scope=document)=>[...scope.querySelectorAll(selector)];
@@ -15,10 +18,12 @@ const button=(label,action,options={})=>`<button type="button" class="button ${o
 const iconButton=(label,action,name,options={})=>`<button type="button" class="icon-button ${options.class||''}" data-action="${action}" aria-label="${esc(label)}" title="${esc(label)}" ${options.id?`data-id="${esc(options.id)}"`:''} ${options.extra||''} ${options.disabled?'disabled':''}>${icon(name)||esc(options.symbol||label)}</button>`;
 const chip=kind=>`<span class="type-chip type-${kind}"><span></span>${KINDS[kind].label}</span>`;
 const actionGlyph=name=>`<svg class="action-glyph" viewBox="0 0 24 24" aria-hidden="true">${name==='star'?'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/>':'<path d="M12 5v14M5 12h14"/>'}</svg>`;
+const glassAction=(label,action,options={})=>`<lg-button class="glass-action" tone="light" radius="16" refraction="14" backdrop="#surface" data-action="${action}" ${options.extra||''}>${options.icon?icon(options.icon):''}${label}</lg-button>`;
+const generations=new GenerationHistory();
 const browserModel=document.querySelector('meta[name="topic-runtime"][content="static"]')?createBrowserModelClient():null;
 const STORAGE='topic-explorer-projects-v1';
 let projects=[];try{projects=JSON.parse(localStorage.getItem(STORAGE)||'[]').flatMap(value=>{try{return [validateProject(value)];}catch{return [];}});}catch{projects=[];}
-let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,tool='select',assigning=null,connecting=null,pending=null,search='',query='',manualDraft='',manualKind='scene',modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},history=[],future=[],savedSelection=new Set(),drag=null,spaceHeld=false;
+let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,tool='select',assigning=null,connecting=null,pending=null,search='',query='',manualDraft='',manualKind='scene',modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},savedSelection=new Set(),drag=null,spaceHeld=false;
 let lastFocus=null,saveTimer=null,queuedAfterModel=null,fanPinned=null,cordDrag=null,suppressCordClick=false;
 let cardMotion=null,layoutAnimation=null,canvasSelection=new Set();
 const app=$('#app'),overlays=$('#overlays');
@@ -27,7 +32,8 @@ function persist(){
   if(p){p.updatedAt=new Date().toISOString();const index=projects.findIndex(v=>v.id===p.id);if(index<0)projects.unshift(p);else projects[index]=p;}
   try{localStorage.setItem(STORAGE,JSON.stringify(projects));}catch{toast('浏览器存储空间不足，请导出项目文件。','error');}
 }
-function commit(change){finishCardMotion();history.push(clone(p));if(history.length>60)history.shift();future=[];change();persist();}
+function commit(change){finishCardMotion();change();persist();}
+function setCanvasTool(value){tool=value;$('#surface')?.classList.toggle('hand-tool',tool==='hand');if($('.tool-switch'))$('.tool-switch').value=value;}
 function toast(message,type='success',symbol=''){
   const el=document.createElement('div');el.className=`toast toast-${type}`;
   if(symbol){const decoration=document.createElement('span');decoration.className='ui-emoji';decoration.setAttribute('aria-hidden','true');decoration.textContent=symbol;el.appendChild(decoration);}
@@ -66,18 +72,24 @@ function renderWorkspace(){
     <section id="surface" class="canvas-surface ${tool==='hand'?'hand-tool':''}" aria-label="选题探索画布，拖动空白处框选，按住空格平移" tabindex="0"><div id="world" class="canvas-world"><svg id="edges" class="edges" width="1" height="1"></svg><div id="nodes"></div><svg id="link-preview" class="link-preview" width="1" height="1"></svg><div id="selection-bounds" class="selection-bounds" hidden><i></i><i></i><i></i><i></i></div></div><div id="marquee" class="marquee" hidden></div><div class="canvas-empty" id="canvas-empty"></div></section>
     <div id="canvas-selection-bar" class="canvas-selection-bar glass" aria-live="polite" hidden></div>
     <div class="canvas-heading"><span class="eyebrow">${emoji('🧭')} 正在探索</span><span id="node-count"></span></div>
-    <div class="view-tools">${button('一键整理','arrange',{icon:'layers',extra:'title="按照主线整理画布，可撤销"'})}${button(showOutline?'收起路径':'探索路径','outline',{class:showOutline?'active':''})}${focusId?button('退出聚焦','unfocus',{class:'active'}):''}${p.nodes.some(n=>n.hidden)?button(showHidden?'隐藏已收起':'显示已收起','toggle-hidden',{class:showHidden?'active':''}):''}</div>
+    <div class="view-tools">${glassAction('一键整理','arrange',{icon:'layers',extra:'title="按照主线整理画布"'})}${glassAction(showOutline?'收起路径':'探索路径','outline',{extra:`aria-pressed="${showOutline}"`})}${focusId?button('退出聚焦','unfocus',{class:'active'}):''}${p.nodes.some(n=>n.hidden)?button(showHidden?'隐藏已收起':'显示已收起','toggle-hidden',{class:showHidden?'active':''}):''}</div>
     <aside id="outline" class="outline glass ${showOutline?'is-open':''}" aria-label="探索路径"></aside>
     <aside id="node-panel" class="node-panel glass" aria-label="当前卡片操作" hidden></aside>
     <div id="selection-notice" class="selection-notice glass" hidden></div>
-    <section class="manual-dock" aria-label="画布工具与添加卡片"><div class="dock-panel glass"><div class="dock-toolbar"><div class="canvas-tools" role="group" aria-label="画布操作"><div class="segmented tool-switch"><button data-action="tool-select" class="${tool==='select'?'selected':''}" aria-pressed="${tool==='select'}">选择</button><button data-action="tool-hand" class="${tool==='hand'?'selected':''}" aria-pressed="${tool==='hand'}">平移</button></div><span class="tool-separator"></span>${iconButton('撤销，Command Z','undo','undo',{disabled:!history.length})}${iconButton('重做，Command Shift Z','redo','undo',{class:'redo-icon',disabled:!future.length})}<span class="tool-separator"></span><button class="zoom-button" data-action="zoom-out" aria-label="缩小">−</button><button id="zoom-value" class="zoom-value" data-action="fit" title="适应画面">100%</button><button class="zoom-button" data-action="zoom-in" aria-label="放大">+</button></div><div class="generation-setting"><span>每次生成</span><div class="segmented">${[3,6,10].map(n=>`<button data-action="count" data-count="${n}" class="${p.generationCount===n?'selected':''}" aria-pressed="${p.generationCount===n}">${n}</button>`).join('')}</div><span>张</span></div></div><form id="manual-form" class="manual-form"><label class="kind-select"><span class="sr-only">卡片类型</span><select id="manual-kind" aria-label="手动卡片类型">${['scene','pain','people'].map(kind=>`<option value="${kind}" ${manualKind===kind?'selected':''}>${KINDS[kind].label}</option>`).join('')}</select></label><label class="manual-input"><span class="sr-only">手动卡片内容</span><textarea id="manual-text" rows="1" maxlength="400" placeholder="写下一点想法，添加成卡片…">${esc(manualDraft)}</textarea></label><button type="submit" class="add-card-button" aria-label="添加独立卡片">${actionGlyph('plus')}</button></form></div><div class="dock-hint"><span>添加后可指定上层，或与同类卡片寻找交集。</span><span><kbd>⌘</kbd> <kbd>↵</kbd> 添加</span></div></section>
-    <div class="canvas-footer"><span>拖动空白处框选 · Shift 加选 · 空格平移 · ⌘A 全选</span><span id="mode-note">${model.mode==='live'?'生成结果待验证':'连接模型后开始生成'}</span></div>
+    <section class="manual-dock" aria-label="画布工具与添加卡片"><lg-panel class="dock-panel" tone="light" radius="26" refraction="20" bezel="0.32" blur="1.5" chroma="0.12" backdrop="#surface"><div class="dock-toolbar"><div class="canvas-tools" role="group" aria-label="画布操作"><lg-segmented class="tool-switch" value="${tool}" label="画布工具" refraction="6"><button value="select">选择</button><button value="hand">平移</button></lg-segmented><span class="tool-separator"></span>${iconButton('撤回生成，Command Z','undo','undo',{disabled:!generations.canUndo(p)})}${iconButton('恢复生成，Command Shift Z','redo','undo',{class:'redo-icon',disabled:!generations.canRedo()})}<span class="tool-separator"></span><button class="zoom-button" data-action="zoom-out" aria-label="缩小">−</button><button id="zoom-value" class="zoom-value" data-action="fit" title="适应画面">100%</button><button class="zoom-button" data-action="zoom-in" aria-label="放大">+</button></div><div class="generation-setting"><span>每次生成</span><lg-segmented id="generation-count" value="${p.generationCount}" label="每次生成数量" refraction="5">${[3,6,10].map(n=>`<button value="${n}">${n}</button>`).join('')}</lg-segmented><span>张</span></div></div><form id="manual-form" class="manual-form"><label class="kind-select"><span class="sr-only">卡片类型</span><select id="manual-kind" aria-label="手动卡片类型">${['scene','pain','people'].map(kind=>`<option value="${kind}" ${manualKind===kind?'selected':''}>${KINDS[kind].label}</option>`).join('')}</select></label><label class="manual-input"><span class="sr-only">手动卡片内容</span><textarea id="manual-text" rows="1" maxlength="400" placeholder="写下一点想法，添加成卡片…">${esc(manualDraft)}</textarea></label><lg-button type="submit" class="add-card-button" tone="tinted" radius="15" refraction="12" backdrop="#surface" aria-label="添加独立卡片">${actionGlyph('plus')}</lg-button></form></lg-panel><div class="dock-hint"><span>添加后可指定上层，或与同类卡片寻找交集。</span><span><kbd>⌘</kbd> <kbd>↵</kbd> 添加</span></div></section>
+    <div class="canvas-footer"><span>双指滑动平移 · 捏合缩放 · Shift 加选 · ⌘A 全选</span><span id="mode-note">${model.mode==='live'?'生成结果待验证':'连接模型后开始生成'}</span></div>
     <div id="generation-progress" class="generation-progress glass" hidden></div>
   </main>`;
+  $$('lg-button[aria-pressed]').forEach(host=>$('button',host)?.setAttribute('aria-pressed',host.getAttribute('aria-pressed')));
   $('#manual-form').addEventListener('submit',addManualCard);
   $('#manual-text').addEventListener('input',e=>{manualDraft=e.target.value;});
   $('#manual-kind').addEventListener('change',e=>manualKind=e.target.value);
   $('#node-search').addEventListener('input',e=>{search=e.target.value;drawGraph();});
+  $('.tool-switch').addEventListener('change',event=>setCanvasTool(event.detail.value));
+  $('#generation-count').addEventListener('change',event=>{
+    if(pending){event.currentTarget.value=String(p.generationCount);toast('生成完成后即可调整数量。');return;}
+    p.generationCount=Number(event.detail.value);persist();drawGraph();
+  });
   bindCanvas();drawGraph();updateModelBadge();
 }
 function curve(a,b){
@@ -116,7 +128,7 @@ function drawGraph(){
   if(p.nodes.length===1)$('#canvas-empty').innerHTML=`<span>${emoji('💡')} 悬停选题中心，在上方选择细化维度。</span><p>场景、痛点、人群，可以从任何一处开始。</p>`;
   if(search){const matches=nodes.filter(n=>`${n.title} ${n.description}`.toLowerCase().includes(search.toLowerCase()));$('#node-count').textContent=matches.length?`找到 ${matches.length} 个相关想法`:'没有找到相关想法';}
   const undo=$('[data-action="undo"]'),redo=$('[data-action="redo"]');
-  if(undo)undo.disabled=!history.length;if(redo)redo.disabled=!future.length;
+  if(undo)undo.disabled=!generations.canUndo(p);if(redo)redo.disabled=!generations.canRedo();
   updatePull();
 }
 function pendingCardMarkup(){
@@ -172,7 +184,7 @@ function fitView(nodes=null,overview=false){
   view={scale,x:left+(r.width-left-right)/2-(b.x+b.width/2)*scale,y:top+(r.height-top-bottom)/2-(b.y+b.height/2)*scale};updateView();
 }
 function centerNode(id){const n=p.nodes.find(v=>v.id===id),r=$('#surface').getBoundingClientRect();if(!n)return;view.x=r.width/2-(n.x+CARD.width/2)*view.scale;view.y=(r.height-100)/2-(n.y+CARD.height/2)*view.scale;updateView();}
-function zoomBy(factor,point=null){const r=$('#surface').getBoundingClientRect(),x=point?.x??r.width/2,y=point?.y??r.height/2;const next=Math.max(0.08,Math.min(1.75,view.scale*factor));view.x=x-(x-view.x)*next/view.scale;view.y=y-(y-view.y)*next/view.scale;view.scale=next;updateView();}
+function zoomBy(factor,point=null){const r=$('#surface').getBoundingClientRect();view=zoomView(view,factor,point||{x:r.width/2,y:r.height/2});updateView();}
 function drawNodePanel(){
   const panel=$('#node-panel');if(!panel)return;
   if(!fanPinned)$$('.idea-card.fan-pinned').forEach(el=>el.classList.remove('fan-pinned'));
@@ -211,8 +223,8 @@ function updateNotices(){
 }
 function openProject(project){
   finishCardMotion();
-  pending?.controller.abort();pending=null;p=project;screen='workspace';selectOnly(rootOf(p).id);menu=null;fanPinned=null;focusId=null;showShelf=false;showOutline=false;showHidden=false;history=[];future=[];search='';assigning=null;connecting=null;manualDraft='';
-  const before=clone(p);if(spreadCrowdedCards(p.nodes,new Set([rootOf(p).id])).size){history.push(before);persist();}
+  pending?.controller.abort();pending=null;p=project;screen='workspace';selectOnly(rootOf(p).id);menu=null;fanPinned=null;focusId=null;showShelf=false;showOutline=false;showHidden=false;generations.clear();search='';assigning=null;connecting=null;manualDraft='';
+  if(spreadCrowdedCards(p.nodes,new Set([rootOf(p).id])).size)persist();
   render();requestAnimationFrame(()=>fitView(null,true));
 }
 function openDemo(){
@@ -240,7 +252,7 @@ async function generate(parentId,kind){
     if(controller.signal.aborted||p?.id!==projectId)return;
     if(!result.nodes.length)throw new Error(result.message||'模型没有给出可用候选，可以调整条件后重试。');
     if(!p.nodes.some(n=>n.id===parentId))throw new Error('来源卡片已被移除，这次结果没有加入画布。');
-    pending=null;let created;commit(()=>created=appendGenerated(p,parentId,kind,result.nodes,'live',positions));selectOnly(created[0].id);menu=null;drawGraph();revealCards([node,...created]);animateCreated(created,node);toast(`已生成 ${created.length} 个${KINDS[kind].label}候选，每个都保留了上层关联。`);
+    pending=null;let created;commit(()=>{created=appendGenerated(p,parentId,kind,result.nodes,'live',positions);generations.record(created);});selectOnly(created[0].id);menu=null;drawGraph();revealCards([node,...created]);animateCreated(created,node);toast(`已生成 ${created.length} 个${KINDS[kind].label}候选，每个都保留了上层关联。`);
   }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller)clearPending();updateNotices();}
 }
 async function combine(aId,bId){
@@ -258,7 +270,7 @@ async function combine(aId,bId){
     if(controller.signal.aborted||p?.id!==projectId)return;
     if(!result.nodes.length){toast(result.message||'没有找到合理交集，原卡片已保留。');return;}
     if(![aId,bId].every(id=>p.nodes.some(n=>n.id===id)))throw new Error('来源卡片已被移除，这次结果没有加入画布。');
-    pending=null;let node;commit(()=>node=mergeNodes(p,aId,bId,result.nodes[0],'live',positions[0]));selectOnly(node.id);drawGraph();revealCards(ancestorsOf(p,node.id));animateCreated([node],positions[0]);toast('已生成交集卡片，两个来源均已保留。');
+    pending=null;let node;commit(()=>{node=mergeNodes(p,aId,bId,result.nodes[0],'live',positions[0]);generations.record([node]);});selectOnly(node.id);drawGraph();revealCards(ancestorsOf(p,node.id));animateCreated([node],positions[0]);toast('已生成交集卡片，两个来源均已保留。');
   }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller)clearPending();updateNotices();}
 }
 function clearPending(){const before=graphNodes().map(n=>({...n}));pending=null;drawGraph();animateLayout(before);}
@@ -285,7 +297,7 @@ function finishCardMotion(record=true){
   cardMotion=null;cancelAnimationFrame(motion.frame);
   if(drag?.type==='node')drag=null;
   $('#surface')?.classList.remove('is-dragging-card');
-  if(p?.id===motion.projectId&&record){history.push(motion.before);if(history.length>60)history.shift();future=[];persist();}
+  if(p?.id===motion.projectId&&record)persist();
 }
 function startCardMotion(before,id,fixedIds){
   cardMotion={before,fixedId:id,fixedIds,projectId:p.id,nodes:visibleNodes(p,{focusId,showHidden}),activeIds:new Set(fixedIds),released:false,settleFrames:0};
@@ -301,7 +313,21 @@ function startCardMotion(before,id,fixedIds){
 }
 function bindCanvas(){
   const surface=$('#surface');
-  surface.addEventListener('wheel',event=>{if(event.target.closest('.node-panel,.manual-dock,.shelf'))return;event.preventDefault();if(drag)return;const rect=surface.getBoundingClientRect();if(event.ctrlKey||event.metaKey||Math.abs(event.deltaY)>Math.abs(event.deltaX)*1.5)zoomBy(Math.exp(-event.deltaY*0.0017),{x:event.clientX-rect.left,y:event.clientY-rect.top});else{view.x-=event.deltaX;view.y-=event.deltaY;updateView();}},{passive:false});
+  let pinchScale=null;
+  const gesturePoint=(event,rect)=>event.clientX||event.clientY?{x:event.clientX-rect.left,y:event.clientY-rect.top}:{x:rect.width/2,y:rect.height/2};
+  surface.addEventListener('wheel',event=>{
+    event.preventDefault();if(drag||pinchScale!==null)return;
+    const rect=surface.getBoundingClientRect(),intent=wheelIntent(event,rect);
+    if(intent.type==='zoom')zoomBy(intent.factor,gesturePoint(event,rect));
+    else{view.x-=intent.dx;view.y-=intent.dy;updateView();}
+  },{passive:false});
+  surface.addEventListener('gesturestart',event=>{event.preventDefault();if(!drag)pinchScale=event.scale||1;},{passive:false});
+  surface.addEventListener('gesturechange',event=>{
+    event.preventDefault();if(pinchScale===null||drag)return;
+    const rect=surface.getBoundingClientRect();zoomBy(gestureFactor(event.scale,pinchScale,rect),gesturePoint(event,rect));
+    if(Number.isFinite(event.scale)&&event.scale>0)pinchScale=event.scale;
+  },{passive:false});
+  surface.addEventListener('gestureend',event=>{event.preventDefault();pinchScale=null;},{passive:false});
   surface.addEventListener('pointerdown',event=>{
     if(event.button!==0&&event.button!==1)return;
     const handle=event.target.closest('[data-handle]'),nodeEl=event.target.closest('[data-node]');
@@ -401,14 +427,21 @@ function dispatch(action,el){
     case'project-settings':openModal('project-settings');break;
     case'shelf':toggleShelf();break;
     case'outline':showOutline=!showOutline;renderWorkspace();break;
-    case'tool-select':tool='select';renderWorkspace();break;
-    case'tool-hand':tool='hand';renderWorkspace();break;
+    case'tool-select':setCanvasTool('select');break;
+    case'tool-hand':setCanvasTool('hand');break;
     case'fit':fitView(null,true);break;
-    case'arrange':{const before=clone(p.nodes);commit(()=>arrangeByMainline(p));menu=null;fanPinned=null;connecting=null;assigning=null;drawGraph();animateLayout(before);revealCards(visibleNodes(p,{focusId,showHidden}));toast('已按主线整理，可撤销恢复原布局。');break;}
+    case'arrange':{const before=clone(p.nodes);commit(()=>arrangeByMainline(p));menu=null;fanPinned=null;connecting=null;assigning=null;drawGraph();animateLayout(before);revealCards(visibleNodes(p,{focusId,showHidden}));toast('已按主线整理。');break;}
     case'zoom-in':zoomBy(1.16);break;
     case'zoom-out':zoomBy(1/1.16);break;
-    case'undo':if(history.length){future.push(clone(p));p=history.pop();if(!p.nodes.some(n=>n.id===selected))selectOnly(rootOf(p).id);if(!p.nodes.some(n=>n.id===focusId))focusId=null;assigning=null;connecting=null;persist();renderWorkspace();toast('已撤销');}break;
-    case'redo':if(future.length){history.push(clone(p));p=future.pop();if(!p.nodes.some(n=>n.id===selected))selectOnly(rootOf(p).id);if(!p.nodes.some(n=>n.id===focusId))focusId=null;assigning=null;connecting=null;persist();renderWorkspace();toast('已重做');}break;
+    case'undo':{
+      const removed=generations.undo(p);if(!removed.length)break;
+      if(!p.nodes.some(n=>n.id===selected))selectOnly(rootOf(p).id);if(!p.nodes.some(n=>n.id===focusId))focusId=null;
+      assigning=null;connecting=null;menu=null;persist();drawGraph();toast(`已撤回上次生成的 ${removed.length} 张卡片，其他编辑和移动已保留。`);break;
+    }
+    case'redo':{
+      const restored=generations.redo(p);if(!restored.length)break;
+      selectOnly(restored[0].id);assigning=null;connecting=null;menu=null;persist();drawGraph();toast(`已恢复 ${restored.length} 张生成卡片。`);break;
+    }
     case'count':p.generationCount=Number(el.dataset.count);persist();renderWorkspace();break;
     case'node-menu':{const same=selected===id;selectOnly(id);fanPinned=null;menu=menu==='node'&&same?null:'node';drawGraph();break;}
     case'close-menu':menu=null;drawNodePanel();break;
@@ -519,10 +552,10 @@ function openModal(kind,data=null){
     title='分享这次探索';body=`<p class="modal-intro">把当前探索保存为链接快照。接收者打开后，会获得一份可独立编辑的副本。</p><div class="original-idea"><strong>${esc(p.title)}</strong><p>${p.nodes.length} 个想法 · ${p.favorites.length} 个已收藏方向</p></div><p class="field-hint">${browserModel?'接收者可直接打开链接。链接包含当前项目副本，请仅分享你愿意公开的内容；每位访客单独配置自己的 AI。':'原型运行在本地。接收者需要能够访问同一个网页服务；跨设备分享也可以先导出项目文件。'}</p>`;footer=button('导出项目文件','download-json')+button('复制链接','copy-share',{class:'primary'});
   }
   if(kind==='help'){
-    title='让想法一步步长出来';body=`<div class="help-steps"><div><span>1</span><section><h3>从一个粗想法开始</h3><p>输入兴趣、观察或作业要求，建立选题中心。</p></section></div><div><span>2</span><section><h3>选择卡片，换个维度看</h3><p>从场景、痛点、人群继续探索。卡片加号会细化相同类型。</p></section></div><div><span>3</span><section><h3>连接同类，寻找交集</h3><p>从右侧连接点拖到另一张同类卡片，也可以在操作面板点击“关联同类卡片”。</p></section></div><div><span>4</span><section><h3>留下方向，也留下来路</h3><p>点击星标，收藏节点、全部上游路径和细化理由。</p></section></div></div><div class="detail-footnote">拖动空白处平移，滚轮缩放。⌘Z 撤销，⌘⇧Z 重做，⌘K 搜索。独立卡片可通过“指定上层”建立归属。</div>`;footer=button('知道了','close-modal',{class:'primary'});
+    title='让想法一步步长出来';body=`<div class="help-steps"><div><span>1</span><section><h3>从一个粗想法开始</h3><p>输入兴趣、观察或作业要求，建立选题中心。</p></section></div><div><span>2</span><section><h3>选择卡片，换个维度看</h3><p>从场景、痛点、人群继续探索。卡片加号会细化相同类型。</p></section></div><div><span>3</span><section><h3>连接同类，寻找交集</h3><p>从右侧连接点拖到另一张同类卡片，也可以在操作面板点击“关联同类卡片”。</p></section></div><div><span>4</span><section><h3>留下方向，也留下来路</h3><p>点击星标，收藏节点、全部上游路径和细化理由。</p></section></div></div><div class="detail-footnote">双指滑动平移，捏合缩放。⌘Z 撤回生成，⌘⇧Z 恢复生成，⌘K 搜索。独立卡片可通过“指定上层”建立归属。</div>`;footer=button('知道了','close-modal',{class:'primary'});
   }
   if(kind==='delete-node'||kind==='delete-project'){
-    title=kind==='delete-node'?'删除这条分支？':'删除这个项目？';body=`<p class="modal-intro">${kind==='delete-node'?'会一并删除只属于它的子节点。已经收藏的路径快照会保留，也可以通过撤销恢复。':'会从这台设备的最近探索中删除。建议先导出项目文件。'}</p>`;footer=button('取消','close-modal')+`<button class="button destructive" id="confirm-delete">确认删除</button>`;
+    title=kind==='delete-node'?'删除这条分支？':'删除这个项目？';body=`<p class="modal-intro">${kind==='delete-node'?'会一并删除只属于它的子节点。已经收藏的路径快照会保留。':'会从这台设备的最近探索中删除。建议先导出项目文件。'}</p>`;footer=button('取消','close-modal')+`<button class="button destructive" id="confirm-delete">确认删除</button>`;
   }
   overlays.innerHTML=modalShell(title,body,footer,wide,headingEmoji);bindModal(kind,data);requestAnimationFrame(()=>($('.modal input,.modal textarea')||$('.modal button'))?.focus());
 }
@@ -536,11 +569,14 @@ function bindModal(kind,data){
   $('#model-form')?.addEventListener('submit',async e=>{e.preventDefault();const submit=$('#save-model'),error=$('#model-error');submit.disabled=true;submit.textContent='正在验证…';error.hidden=true;try{model=await api('/model',connectionInput());const work=queuedAfterModel;closeModal();updateModelBadge();toast(model.verified?'已验证模型名称，配置已保存。':'模型配置已保存。');work?.();}catch(err){error.hidden=false;error.textContent=err.message;submit.disabled=false;submit.textContent='重试保存';}});
   $('#edit-form')?.addEventListener('submit',e=>{e.preventDefault();const title=$('#edit-title').value.trim(),description=$('#edit-description').value.trim(),rationale=$('#edit-rationale').value.trim();if(!title)return;commit(()=>{const node=p.nodes.find(n=>n.id===data.id);Object.assign(node,{title,description,rationale});p.edges.filter(e=>e.to===node.id).forEach(e=>e.rationale=rationale);});closeModal();drawGraph();toast('想法与关联理由已更新。');});
   $('#context-form')?.addEventListener('submit',e=>{e.preventDefault();const title=$('#context-title').value.trim(),context=$('#context-text').value.trim();commit(()=>Object.assign(p,{title,context}));closeModal();renderWorkspace();toast('背景已保存，后续生成会使用这些条件。');});
-  $('#confirm-delete')?.addEventListener('click',()=>{if(kind==='delete-node'){commit(()=>removeBranch(p,data));if(!p.nodes.some(n=>n.id===focusId))focusId=null;selectOnly(rootOf(p).id);closeModal();renderWorkspace();toast('已删除分支，可以撤销恢复。');}else{projects=projects.filter(v=>v.id!==data);p=null;persist();closeModal();renderHome();}});
+  $('#confirm-delete')?.addEventListener('click',()=>{if(kind==='delete-node'){commit(()=>removeBranch(p,data));if(!p.nodes.some(n=>n.id===focusId))focusId=null;selectOnly(rootOf(p).id);closeModal();renderWorkspace();toast('已删除分支。');}else{projects=projects.filter(v=>v.id!==data);p=null;persist();closeModal();renderHome();}});
 }
 document.addEventListener('keydown',e=>{
   if(modal&&e.key==='Tab'){const items=$$('button:not([disabled]),input,textarea,select,[tabindex="0"]',$('.modal')),first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}return;}
   if(e.key==='Escape'){if(modal){closeModal();queuedAfterModel=null;}else if(showShelf){toggleShelf();}else{menu=null;fanPinned=null;connecting=null;assigning=null;if(drag){cancelCanvasDrag();return;}selectOnly(null);if(focusId){focusId=null;renderWorkspace();}else if(screen==='workspace')drawGraph();}return;}
+  if(e.defaultPrevented)return;
+  if(e.target.closest('lg-segmented')&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Enter'].includes(e.key))return;
+  if(e.code==='Space'&&e.target.closest('button,lg-button'))return;
   const editing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
   if((e.metaKey||e.ctrlKey)&&e.key==='Enter'&&document.activeElement?.id==='manual-text'){e.preventDefault();addManualCard();return;}
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'&&screen==='workspace'){e.preventDefault();$('#node-search').focus();return;}

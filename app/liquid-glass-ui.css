@@ -1,0 +1,70 @@
+:root{
+  --lg-accent:#007aff;
+  --lg-text:#263753;
+  --lg-text-muted:#67758a;
+  --lg-on-glass:#263753;
+  --lg-surface:#f6f9fd;
+  --lg-track:#dce5f075;
+  --lg-tint-strong:#ffffff66;
+  --lg-shadow-1:0 2px 6px #283f6514,0 0 0 1px #ffffffd9 inset;
+  --lg-shadow-2:0 16px 42px #2a426519,0 2px 8px #263d650b;
+}
+.canvas-surface{background-color:#f3f5f9;overscroll-behavior:none}
+.manual-dock{width:min(800px,calc(100% - 64px))}
+lg-panel.dock-panel{overflow:visible;border:0;border-radius:26px;background:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+lg-panel.dock-panel>.lg-panel__body{border:1px solid #ffffffe8;border-radius:inherit;background:#ffffff30}
+lg-panel.dock-panel>.lg-surface>.lg-surface__tint{background:linear-gradient(135deg,#ffffffb5,#f7fbff4d 52%,#ffffff85);border:1px solid #ffffffb3;box-shadow:0 1px 0 #fff inset,0 -1px 0 #c1d4eb40 inset}
+.dock-toolbar{min-height:58px;padding:9px 14px;border-bottom-color:#d3dfed73}
+.canvas-tools{gap:4px}
+lg-segmented.tool-switch{border:1px solid #cbd8e67a;border-radius:14px;padding:4px;gap:2px;background:#cfdceb66}
+.canvas-tools .tool-switch .lg-seg__option{min-width:56px;height:30px;padding:0 9px;border-radius:10px;font-size:11px;line-height:30px;background:transparent;box-shadow:none;font-weight:500}
+lg-segmented.tool-switch .lg-refract{padding:4px;gap:2px;border:1px solid transparent;border-radius:14px;background:#f6f9fd}
+.canvas-tools .tool-switch>button[aria-checked=true]{color:#007aff}
+.canvas-tools .icon-button{background:#ffffff2e;border:1px solid #ffffff9c;color:#66768c;box-shadow:0 2px 6px #30496b05}
+.canvas-tools .icon-button:not(:disabled):hover{background:#ffffffad;border-color:#fff}
+.canvas-tools .source-icon{opacity:.66}
+.canvas-tools .tool-separator{background:#b9cbe166;height:20px}
+.canvas-tools .zoom-button,.canvas-tools .zoom-value{color:#566b85;background:transparent}
+.canvas-tools .zoom-value{border:1px solid #ffffffa8;background:#ffffff45;min-height:30px}
+lg-segmented#generation-count{padding:3px;gap:2px;border:1px solid #cbd8e67a;border-radius:11px;background:#cfdceb66}
+lg-segmented#generation-count .lg-seg__option{min-width:28px;height:24px;padding:0 8px;border-radius:7px;font-size:10px;line-height:24px}
+lg-segmented#generation-count .lg-refract{padding:3px;gap:2px;border:1px solid transparent;border-radius:11px;background:#f6f9fd}
+.dock-toolbar .generation-setting{color:#677a94}
+.dock-panel .manual-form{height:70px;padding:12px 15px;gap:14px}
+.dock-panel .kind-select select{background:#dce7f073;border:1px solid #ffffffb3;color:#657b98;border-radius:12px}
+.dock-panel .manual-input textarea{color:#354964;font-size:12px}
+.dock-panel .manual-input textarea::placeholder{color:#8b9bb1}
+lg-button.add-card-button{width:42px;height:42px;background:transparent;border:0;box-shadow:none;flex-shrink:0;border-radius:15px}
+lg-button.add-card-button .lg-button__el{width:42px;min-width:42px;min-height:42px;height:42px;padding:0;color:#fff;border-radius:15px}
+lg-button.add-card-button .lg-surface__tint{background:linear-gradient(145deg,#309affec,#007afae8);border:1px solid #ffffffb3;box-shadow:0 1px 0 #ffffff70 inset}
+lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
+.view-tools lg-button.glass-action{border:0;background:transparent;box-shadow:none;border-radius:16px}
+.view-tools lg-button.glass-action .lg-button__el{height:36px;min-height:36px;padding:0 14px;color:#567294;font-size:10px;font-weight:550;border-radius:16px}
+.view-tools lg-button.glass-action .lg-button__label{gap:6px}
+.view-tools lg-button.glass-action .lg-surface__tint{border:1px solid #ffffffdb;background:#ffffff87;box-shadow:0 1px 0 #fff inset}
+.view-tools lg-button.glass-action[aria-pressed=true] .lg-surface__tint{background:#dbeaffb3}
+.dock-hint{color:#8d9aaf}
+@media(max-width:850px){.manual-dock{width:calc(100% - 40px)}}
+@media(max-width:620px){
+  .workspace{--dock-clearance:254px}
+  .manual-dock{width:calc(100% - 28px)}
+  lg-panel.dock-panel{border-radius:22px}
+  .dock-toolbar{padding:9px 10px;gap:7px}
+  .canvas-tools{gap:2px}
+  .canvas-tools .tool-switch .lg-seg__option{min-width:51px;padding:0 8px}
+  .canvas-tools .tool-separator{margin:0 3px}
+  .canvas-tools .icon-button,.canvas-tools .zoom-button{width:30px;height:32px;min-height:32px}
+  .canvas-tools .zoom-value{width:42px}
+  .dock-panel .manual-form{height:64px;padding:10px 11px;gap:10px}
+  .dock-panel .manual-input textarea{font-size:11px}
+  lg-button.add-card-button,lg-button.add-card-button .lg-button__el{width:36px;min-width:36px;height:36px;min-height:36px;border-radius:12px}
+  .view-tools lg-button.glass-action .lg-button__el{padding:0 11px;font-size:9px}
+}
+@media(max-width:360px){.canvas-tools .tool-switch .lg-seg__option{min-width:44px;padding:0 6px}.canvas-tools .icon-button,.canvas-tools .zoom-button{width:28px}.canvas-tools .tool-separator{margin:0 2px}.canvas-tools .zoom-value{width:38px}}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
+  lg-panel.dock-panel>.lg-panel__body{background:#f7faff}
+  .dock-panel .lg-surface__glass,.view-tools .lg-surface__glass{visibility:hidden}
+  .dock-panel lg-segmented .lg-refract{visibility:hidden}
+  .dock-panel lg-segmented>button[aria-checked=true]{background:#fff;color:#0064cc;box-shadow:0 1px 4px #263c651f}
+  .view-tools lg-button.glass-action .lg-surface__tint{background:#f7faff}
+}
