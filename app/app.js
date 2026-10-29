@@ -5,6 +5,7 @@ import { createBrowserModelClient } from './browser-model.js';
 const $=(selector,scope=document)=>scope.querySelector(selector);
 const $$=(selector,scope=document)=>[...scope.querySelectorAll(selector)];
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const emoji=symbol=>`<span class="ui-emoji" aria-hidden="true">${esc(symbol)}</span>`;
 const icons={branch:'git-branch',search:'search',back:'arrow-left',arrow:'arrow-right',scene:'stack-2',pain:'rocket',people:'users',merge:'git-merge',settings:'world-cog',file:'file-text',save:'device-floppy',refresh:'refresh',layers:'stack-2',link:'arrows-split',tag:'tag',lock:'lock'};
 function icon(name,extra=''){
   if(['plus','star','undo','close'].includes(name))return `<img class="source-icon ${extra}" src="./assets/icons/figma-${name}.svg" alt="" aria-hidden="true">`;
@@ -27,8 +28,10 @@ function persist(){
   try{localStorage.setItem(STORAGE,JSON.stringify(projects));}catch{toast('浏览器存储空间不足，请导出项目文件。','error');}
 }
 function commit(change){finishCardMotion();history.push(clone(p));if(history.length>60)history.shift();future=[];change();persist();}
-function toast(message,type='success'){
-  const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=message;$('#toasts').appendChild(el);setTimeout(()=>el.remove(),type==='error'?6000:3600);
+function toast(message,type='success',symbol=''){
+  const el=document.createElement('div');el.className=`toast toast-${type}`;
+  if(symbol){const decoration=document.createElement('span');decoration.className='ui-emoji';decoration.setAttribute('aria-hidden','true');decoration.textContent=symbol;el.appendChild(decoration);}
+  el.appendChild(document.createTextNode(message));$('#toasts').appendChild(el);setTimeout(()=>el.remove(),type==='error'?6000:3600);
 }
 function current(){return p?.nodes.find(n=>n.id===selected)||(p?rootOf(p):null);}
 function setCanvasSelection(ids,primary=null){
@@ -54,7 +57,7 @@ function header(){return `<header class="app-header">
   </div></header>`;}
 function render(){if(screen==='home')renderHome();else renderWorkspace();updateModelBadge();}
 function renderHome(){
-  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project">${actionGlyph('plus')}<span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects">${icon('file')}<span>打开项目</span></button></div></main>`;
+  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project">${emoji('🌱')}<span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects">${emoji('📂')}<span>打开项目</span></button></div></main>`;
 }
 function renderWorkspace(){
   app.innerHTML=header()+`<main class="workspace ${showShelf?'with-shelf':''} ${showOutline?'with-outline':''}">
@@ -64,7 +67,7 @@ function renderWorkspace(){
     <section id="surface" class="canvas-surface ${tool==='hand'?'hand-tool':''}" aria-label="选题探索画布，拖动空白处框选，按住空格平移" tabindex="0"><div id="world" class="canvas-world"><svg id="edges" class="edges" width="1" height="1"></svg><div id="nodes"></div><svg id="link-preview" class="link-preview" width="1" height="1"></svg><div id="selection-bounds" class="selection-bounds" hidden><i></i><i></i><i></i><i></i></div></div><div id="marquee" class="marquee" hidden></div><div class="canvas-empty" id="canvas-empty"></div></section>
     <div id="canvas-selection-bar" class="canvas-selection-bar glass" aria-live="polite" hidden></div>
     <div class="canvas-top-tools glass"><div class="segmented tool-switch"><button data-action="tool-select" class="${tool==='select'?'selected':''}" aria-pressed="${tool==='select'}">选择</button><button data-action="tool-hand" class="${tool==='hand'?'selected':''}" aria-pressed="${tool==='hand'}">平移</button></div><span class="tool-separator"></span>${iconButton('撤销，Command Z','undo','undo',{disabled:!history.length})}${iconButton('重做，Command Shift Z','redo','undo',{class:'redo-icon',disabled:!future.length})}<span class="tool-separator"></span><button class="zoom-button" data-action="zoom-out" aria-label="缩小">−</button><button id="zoom-value" class="zoom-value" data-action="fit" title="适应画面">100%</button><button class="zoom-button" data-action="zoom-in" aria-label="放大">+</button></div>
-    <div class="canvas-heading"><span class="eyebrow">正在探索</span><span id="node-count"></span></div>
+    <div class="canvas-heading"><span class="eyebrow">${emoji('🧭')} 正在探索</span><span id="node-count"></span></div>
     <div class="view-tools">${button('一键整理','arrange',{icon:'layers',extra:'title="按照主线整理画布，可撤销"'})}${button(showOutline?'收起路径':'探索路径','outline',{class:showOutline?'active':''})}${focusId?button('退出聚焦','unfocus',{class:'active'}):''}${p.nodes.some(n=>n.hidden)?button(showHidden?'隐藏已收起':'显示已收起','toggle-hidden',{class:showHidden?'active':''}):''}</div>
     <aside id="outline" class="outline glass ${showOutline?'is-open':''}" aria-label="探索路径"></aside>
     <aside id="node-panel" class="node-panel glass" aria-label="当前卡片操作" hidden></aside>
@@ -117,7 +120,7 @@ function drawGraph(){
   updateView();updatePath();drawShelf();drawOutline();drawNodePanel();updateNotices();paintCanvasSelection();
   $('#node-count').textContent=`${p.nodes.length} 个想法${focusId?' · 正在聚焦一条分支':''}`;
   $('#canvas-empty').hidden=p.nodes.length>1||!!pending;
-  if(p.nodes.length===1)$('#canvas-empty').innerHTML='<span>悬停选题中心，在上方选择细化维度。</span><p>场景、痛点、人群，可以从任何一处开始。</p>';
+  if(p.nodes.length===1)$('#canvas-empty').innerHTML=`<span>${emoji('💡')} 悬停选题中心，在上方选择细化维度。</span><p>场景、痛点、人群，可以从任何一处开始。</p>`;
   if(search){const matches=nodes.filter(n=>`${n.title} ${n.description}`.toLowerCase().includes(search.toLowerCase()));$('#node-count').textContent=matches.length?`找到 ${matches.length} 个相关想法`:'没有找到相关想法';}
   const undo=$('[data-action="undo"]'),redo=$('[data-action="redo"]');
   if(undo)undo.disabled=!history.length;if(redo)redo.disabled=!future.length;
@@ -199,7 +202,7 @@ function toggleShelf(){
 }
 function drawShelf(){
   const shelf=$('#shelf');if(!shelf)return;
-  shelf.innerHTML=`<div class="shelf-heading"><div><h2>收藏的方向 <span>${p.favorites.length}</span></h2></div><div>${savedSelection.size?button('导出选中 '+savedSelection.size+' 项','export-saved'):''}</div></div><div class="shelf-rope"></div><div class="saved-cards">${p.favorites.length?p.favorites.map((f,i)=>`<article class="saved-card type-${f.kind}" data-saved-card="${f.id}" style="--turn:${[-1.2,1,-.6,.8][i%4]}deg;--hang-delay:${i*35}ms"><label class="saved-check"><input type="checkbox" data-saved-check="${f.id}" ${savedSelection.has(f.id)?'checked':''} aria-label="选择方向：${esc(f.title)}"></label><button data-action="saved-detail" data-id="${f.id}"><span class="saved-kicker">${KINDS[f.kind].label}</span><h3>${esc(f.title)}</h3><p>${esc(f.description)}</p></button></article>`).join(''):'<div class="shelf-empty">暂无收藏</div>'}</div>`;
+  shelf.innerHTML=`<div class="shelf-heading"><div><h2>${emoji('⭐')} 收藏的方向 <span>${p.favorites.length}</span></h2></div><div>${savedSelection.size?button('导出选中 '+savedSelection.size+' 项','export-saved'):''}</div></div><div class="shelf-rope"></div><div class="saved-cards">${p.favorites.length?p.favorites.map((f,i)=>`<article class="saved-card type-${f.kind}" data-saved-card="${f.id}" style="--turn:${[-1.2,1,-.6,.8][i%4]}deg;--hang-delay:${i*35}ms"><label class="saved-check"><input type="checkbox" data-saved-check="${f.id}" ${savedSelection.has(f.id)?'checked':''} aria-label="选择方向：${esc(f.title)}"></label><button data-action="saved-detail" data-id="${f.id}"><span class="saved-kicker">${KINDS[f.kind].label}</span><h3>${esc(f.title)}</h3><p>${esc(f.description)}</p></button></article>`).join(''):'<div class="shelf-empty">还没有收藏</div>'}</div>`;
 }
 function drawOutline(){
   const el=$('#outline');if(!el)return;
@@ -417,7 +420,7 @@ function dispatch(action,el){
     case'close-menu':menu=null;drawNodePanel();break;
     case'expand':fanPinned=null;generate(id,el.dataset.kind);break;
     case'expand-same':{const n=p.nodes.find(v=>v.id===id);selectOnly(id);if(n.kind==='root'){menu=null;fanPinned=fanPinned===id?null:id;drawGraph();}else generate(id,n.kind);break;}
-    case'favorite':{let result;commit(()=>result=favoriteNode(p,id));drawGraph();toast(result?'已留下这个方向，完整路径和理由也一起保存了。':'已取消收藏');break;}
+    case'favorite':{let result;commit(()=>result=favoriteNode(p,id));drawGraph();toast(result?'已留下这个方向，完整路径和理由也一起保存了。':'已取消收藏','success',result?'⭐':'');break;}
     case'edit':openModal('edit',p.nodes.find(n=>n.id===id));break;
     case'details':openModal('node-detail',p.nodes.find(n=>n.id===(id||selected)));break;
     case'assign':assigning=id;connecting=null;menu=null;drawGraph();break;
@@ -450,7 +453,7 @@ function dispatch(action,el){
     case'remove-saved':commit(()=>p.favorites=p.favorites.filter(f=>f.id!==id));closeModal();drawShelf();drawGraph();break;
   }}catch(error){toast(error.message,'error');}
 }
-function modalShell(title,body,footer='',wide=false){return `<div class="modal-backdrop"><section class="modal ${wide?'modal-wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header class="modal-header"><div><span class="modal-eyebrow">有点想法</span><h2>${esc(title)}</h2></div>${iconButton('关闭','close-modal','',{symbol:'×'})}</header>${body}${footer?`<footer class="modal-footer">${footer}</footer>`:''}</section></div>`;}
+function modalShell(title,body,footer='',wide=false,symbol=''){return `<div class="modal-backdrop"><section class="modal ${wide?'modal-wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header class="modal-header"><div><span class="modal-eyebrow">有点想法</span><h2>${symbol?emoji(symbol):''}${esc(title)}</h2></div>${iconButton('关闭','close-modal','',{symbol:'×'})}</header>${body}${footer?`<footer class="modal-footer">${footer}</footer>`:''}</section></div>`;}
 function pathMarkup(snapshot){return snapshot.paths.map(path=>`<ol class="detail-path">${path.map(id=>{const n=snapshot.nodes.find(n=>n.id===id);return n?`<li>${chip(n.kind)}<strong>${esc(n.title)}</strong><p>${esc(n.rationale||'最初的想法')}</p></li>`:'';}).join('')}</ol>`).join('');}
 const motionDuration=value=>matchMedia('(prefers-reduced-motion: reduce)').matches?0:value;
 function releaseDirection(state){state?.flightAnimation?.cancel();state?.turnAnimation?.cancel();state?.source?.classList.remove('is-in-flight');}
@@ -484,9 +487,10 @@ function openModal(kind,data=null){
   menu=null;fanPinned=null;drawNodePanel();
   if(kind==='saved-detail'){openDirection(data);return;}
   lastFocus=document.activeElement;modal={kind,data};let body='',footer='',title='',wide=false;
+  const headingEmoji={'new-project':'🌱','open-projects':'📂',share:'💌'}[kind]||'';
   if(kind==='open-projects'){
     title='打开项目';wide=true;
-    body=`<div class="project-picker">${projects.length?`<div class="project-picker-grid">${projects.map(project=>`<article class="project-card"><button class="project-open" data-action="open-project" data-id="${project.id}"><span class="project-card-icon">${icon('branch')}</span><h3>${esc(project.title)}</h3><p>${esc(project.description)}</p><footer><span>${project.nodes.length} 张卡片</span><time>${new Date(project.updatedAt).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</time></footer></button><button class="project-delete" data-action="delete-project" data-id="${project.id}" aria-label="删除项目 ${esc(project.title)}">×</button></article>`).join('')}</div>`:'<p class="picker-empty">还没有保存的项目，可以从文件打开。</p>'}</div>`;
+    body=`<div class="project-picker">${projects.length?`<div class="project-picker-grid">${projects.map(project=>`<article class="project-card"><button class="project-open" data-action="open-project" data-id="${project.id}"><span class="project-card-icon">${emoji('🌱')}</span><h3>${esc(project.title)}</h3><p>${esc(project.description)}</p><footer><span>${project.nodes.length} 张卡片</span><time>${new Date(project.updatedAt).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</time></footer></button><button class="project-delete" data-action="delete-project" data-id="${project.id}" aria-label="删除项目 ${esc(project.title)}">×</button></article>`).join('')}</div>`:'<p class="picker-empty">还没有保存的项目，可以从文件打开。</p>'}</div>`;
     footer=button('从文件打开','import',{icon:'file'})+button('关闭','close-modal');
   }
   if(kind==='new-project'){
@@ -526,7 +530,7 @@ function openModal(kind,data=null){
   if(kind==='delete-node'||kind==='delete-project'){
     title=kind==='delete-node'?'删除这条分支？':'删除这个项目？';body=`<p class="modal-intro">${kind==='delete-node'?'会一并删除只属于它的子节点。已经收藏的路径快照会保留，也可以通过撤销恢复。':'会从这台设备的最近探索中删除。建议先导出项目文件。'}</p>`;footer=button('取消','close-modal')+`<button class="button destructive" id="confirm-delete">确认删除</button>`;
   }
-  overlays.innerHTML=modalShell(title,body,footer,wide);bindModal(kind,data);requestAnimationFrame(()=>($('.modal input,.modal textarea')||$('.modal button'))?.focus());
+  overlays.innerHTML=modalShell(title,body,footer,wide,headingEmoji);bindModal(kind,data);requestAnimationFrame(()=>($('.modal input,.modal textarea')||$('.modal button'))?.focus());
 }
 function closeModal(){if(modal?.kind==='saved-detail'){closeDirection(modal);return;}if(modal?.kind==='model')queuedAfterModel=null;modal=null;overlays.innerHTML='';if(lastFocus?.isConnected)lastFocus.focus();else if(screen==='workspace')$('#surface')?.focus({preventScroll:true});}
 function bindModal(kind,data){

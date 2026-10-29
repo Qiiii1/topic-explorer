@@ -277,3 +277,14 @@
 .canvas-world:has(.selection-bounds:not([hidden])) .connection-handle{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
 .idea-card .card-star.is-saved{color:#6d4600}
 .add-card-button{color:#007aff;background:#eaf3ff}.add-card-button .action-glyph{width:22px;height:22px}
+
+/* A few friendly accents, with visible text carrying every label. */
+.ui-emoji{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;font-size:1em;font-weight:400;line-height:1;letter-spacing:0;vertical-align:-.08em}
+.launch-button .ui-emoji{width:26px;height:28px;font-size:25px}
+.modal-header h2 .ui-emoji{font-size:24px;margin-right:10px;vertical-align:-.06em}
+.project-card-icon .ui-emoji{font-size:21px}
+.canvas-heading .ui-emoji{font-size:13px;margin-right:3px}
+.canvas-empty .ui-emoji{font-size:16px;margin-right:4px}
+.shelf-heading h2 .ui-emoji{font-size:16px;color:inherit;margin:0 4px 0 0}
+.toast .ui-emoji{font-size:15px;margin-right:7px}
+@media(max-width:620px){.modal-header h2 .ui-emoji{font-size:22px}.canvas-heading .ui-emoji{font-size:11px}.canvas-empty .ui-emoji{font-size:14px}.shelf-heading h2 .ui-emoji{font-size:14px}}
