@@ -288,3 +288,42 @@
 .shelf-heading h2 .ui-emoji{font-size:16px;color:inherit;margin:0 4px 0 0}
 .toast .ui-emoji{font-size:15px;margin-right:7px}
 @media(max-width:620px){.modal-header h2 .ui-emoji{font-size:22px}.canvas-heading .ui-emoji{font-size:11px}.canvas-empty .ui-emoji{font-size:14px}.shelf-heading h2 .ui-emoji{font-size:14px}}
+
+/* Canvas controls and card entry share one quiet bottom dock. */
+.workspace{--dock-clearance:208px}
+.workspace .canvas-heading{top:29px}
+.workspace .view-tools{top:23px}
+.workspace .outline{top:70px;max-height:calc(100% - 290px)}
+.workspace .node-panel{top:74px;max-height:calc(100% - 294px)}
+.manual-dock{width:min(760px,calc(100% - 64px))}
+.dock-panel{overflow:hidden;border:1px solid #e4e7ef;border-radius:20px;background:#fffffff0;box-shadow:0 9px 32px #25314909,0 2px 6px #25314904}
+.dock-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:52px;padding:8px 12px;border-bottom:1px solid #eceef4}
+.canvas-tools{display:flex;align-items:center;gap:3px;flex-shrink:0}
+.canvas-tools .tool-switch button{padding:0 11px;line-height:30px;font-size:11px}
+.canvas-tools .icon-button{width:30px;height:30px;min-height:30px;border-radius:8px}
+.canvas-tools .source-icon{width:20px;height:20px;opacity:.55}
+.canvas-tools .tool-separator{height:18px;margin:0 6px}
+.canvas-tools .zoom-button{width:30px;height:30px;border-radius:8px;font-size:17px}
+.canvas-tools .zoom-value{width:46px;min-height:30px;font-size:11px;border-radius:8px}
+.canvas-tools :is(.zoom-button,.zoom-value):hover{background:#f0f3f8}
+.dock-toolbar .generation-setting{flex-shrink:0;color:#969ba8;font-size:10px;gap:7px}
+.dock-toolbar .generation-setting .segmented button{line-height:24px;min-width:28px;font-size:10px}
+.dock-panel .manual-form{background:transparent;border:0;border-radius:0;box-shadow:none;height:66px;padding:11px 14px}
+.workspace :is(.canvas-selection-bar,.selection-notice,.generation-progress){bottom:var(--dock-clearance)}
+@media(max-width:850px){.manual-dock{width:calc(100% - 40px)}}
+@media(max-width:620px){
+  .workspace{--dock-clearance:240px}
+  .workspace .canvas-heading{top:25px}.workspace .view-tools{top:19px}
+  .workspace .outline{top:65px;max-height:calc(100% - 310px)}
+  .workspace .node-panel{top:111px;max-height:calc(100% - 355px)}
+  .manual-dock{width:calc(100% - 28px)}
+  .dock-panel{border-radius:16px}
+  .dock-toolbar{flex-wrap:wrap;gap:6px;padding:8px 10px}
+  .canvas-tools{width:100%;justify-content:center;gap:2px}
+  .canvas-tools .tool-switch button{line-height:32px;padding:0 12px}
+  .canvas-tools .icon-button,.canvas-tools .zoom-button{width:32px;height:32px;min-height:32px}
+  .canvas-tools .tool-separator{margin:0 4px}
+  .dock-toolbar .generation-setting{margin-left:auto;font-size:9px}
+  .dock-panel .manual-form{height:57px;padding:9px 10px}
+}
+@media(max-width:360px){.canvas-tools .tool-switch button{padding:0 8px}.canvas-tools .tool-separator{margin:0 2px}.canvas-tools .icon-button,.canvas-tools .zoom-button{width:29px}.canvas-tools .zoom-value{width:40px}}

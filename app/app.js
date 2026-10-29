@@ -61,19 +61,16 @@ function renderHome(){
 }
 function renderWorkspace(){
   app.innerHTML=header()+`<main class="workspace ${showShelf?'with-shelf':''} ${showOutline?'with-outline':''}">
-    <div class="path-bar" id="path-bar"></div>
     <button class="collection-backdrop ${showShelf?'is-open':''}" data-action="shelf" aria-label="收起收藏栏" tabindex="-1" ${showShelf?'':'inert'}></button>
     <section class="shelf ${showShelf?'is-open':''}" id="shelf" aria-label="收藏的方向" ${showShelf?'':'inert'}></section>
     <section id="surface" class="canvas-surface ${tool==='hand'?'hand-tool':''}" aria-label="选题探索画布，拖动空白处框选，按住空格平移" tabindex="0"><div id="world" class="canvas-world"><svg id="edges" class="edges" width="1" height="1"></svg><div id="nodes"></div><svg id="link-preview" class="link-preview" width="1" height="1"></svg><div id="selection-bounds" class="selection-bounds" hidden><i></i><i></i><i></i><i></i></div></div><div id="marquee" class="marquee" hidden></div><div class="canvas-empty" id="canvas-empty"></div></section>
     <div id="canvas-selection-bar" class="canvas-selection-bar glass" aria-live="polite" hidden></div>
-    <div class="canvas-top-tools glass"><div class="segmented tool-switch"><button data-action="tool-select" class="${tool==='select'?'selected':''}" aria-pressed="${tool==='select'}">选择</button><button data-action="tool-hand" class="${tool==='hand'?'selected':''}" aria-pressed="${tool==='hand'}">平移</button></div><span class="tool-separator"></span>${iconButton('撤销，Command Z','undo','undo',{disabled:!history.length})}${iconButton('重做，Command Shift Z','redo','undo',{class:'redo-icon',disabled:!future.length})}<span class="tool-separator"></span><button class="zoom-button" data-action="zoom-out" aria-label="缩小">−</button><button id="zoom-value" class="zoom-value" data-action="fit" title="适应画面">100%</button><button class="zoom-button" data-action="zoom-in" aria-label="放大">+</button></div>
     <div class="canvas-heading"><span class="eyebrow">${emoji('🧭')} 正在探索</span><span id="node-count"></span></div>
     <div class="view-tools">${button('一键整理','arrange',{icon:'layers',extra:'title="按照主线整理画布，可撤销"'})}${button(showOutline?'收起路径':'探索路径','outline',{class:showOutline?'active':''})}${focusId?button('退出聚焦','unfocus',{class:'active'}):''}${p.nodes.some(n=>n.hidden)?button(showHidden?'隐藏已收起':'显示已收起','toggle-hidden',{class:showHidden?'active':''}):''}</div>
     <aside id="outline" class="outline glass ${showOutline?'is-open':''}" aria-label="探索路径"></aside>
     <aside id="node-panel" class="node-panel glass" aria-label="当前卡片操作" hidden></aside>
     <div id="selection-notice" class="selection-notice glass" hidden></div>
-    <section class="manual-dock" aria-label="手动添加卡片"><div class="dock-top"><span><span class="status-dot neutral"></span>手动添加 · 独立卡片</span><div class="generation-setting"><span>每次生成</span><div class="segmented">${[3,6,10].map(n=>`<button data-action="count" data-count="${n}" class="${p.generationCount===n?'selected':''}" aria-pressed="${p.generationCount===n}">${n}</button>`).join('')}</div><span>张</span></div></div>
-    <form id="manual-form" class="manual-form glass"><label class="kind-select"><span class="sr-only">卡片类型</span><select id="manual-kind" aria-label="手动卡片类型">${['scene','pain','people'].map(kind=>`<option value="${kind}" ${manualKind===kind?'selected':''}>${KINDS[kind].label}</option>`).join('')}</select></label><label class="manual-input"><span class="sr-only">手动卡片内容</span><textarea id="manual-text" rows="1" maxlength="400" placeholder="写下一点想法，添加成卡片…">${esc(manualDraft)}</textarea></label><button type="submit" class="add-card-button" aria-label="添加独立卡片">${actionGlyph('plus')}</button></form><div class="dock-hint"><span>添加后可指定上层，或与同类卡片寻找交集。</span><span><kbd>⌘</kbd> <kbd>↵</kbd> 添加</span></div></section>
+    <section class="manual-dock" aria-label="画布工具与添加卡片"><div class="dock-panel glass"><div class="dock-toolbar"><div class="canvas-tools" role="group" aria-label="画布操作"><div class="segmented tool-switch"><button data-action="tool-select" class="${tool==='select'?'selected':''}" aria-pressed="${tool==='select'}">选择</button><button data-action="tool-hand" class="${tool==='hand'?'selected':''}" aria-pressed="${tool==='hand'}">平移</button></div><span class="tool-separator"></span>${iconButton('撤销，Command Z','undo','undo',{disabled:!history.length})}${iconButton('重做，Command Shift Z','redo','undo',{class:'redo-icon',disabled:!future.length})}<span class="tool-separator"></span><button class="zoom-button" data-action="zoom-out" aria-label="缩小">−</button><button id="zoom-value" class="zoom-value" data-action="fit" title="适应画面">100%</button><button class="zoom-button" data-action="zoom-in" aria-label="放大">+</button></div><div class="generation-setting"><span>每次生成</span><div class="segmented">${[3,6,10].map(n=>`<button data-action="count" data-count="${n}" class="${p.generationCount===n?'selected':''}" aria-pressed="${p.generationCount===n}">${n}</button>`).join('')}</div><span>张</span></div></div><form id="manual-form" class="manual-form"><label class="kind-select"><span class="sr-only">卡片类型</span><select id="manual-kind" aria-label="手动卡片类型">${['scene','pain','people'].map(kind=>`<option value="${kind}" ${manualKind===kind?'selected':''}>${KINDS[kind].label}</option>`).join('')}</select></label><label class="manual-input"><span class="sr-only">手动卡片内容</span><textarea id="manual-text" rows="1" maxlength="400" placeholder="写下一点想法，添加成卡片…">${esc(manualDraft)}</textarea></label><button type="submit" class="add-card-button" aria-label="添加独立卡片">${actionGlyph('plus')}</button></form></div><div class="dock-hint"><span>添加后可指定上层，或与同类卡片寻找交集。</span><span><kbd>⌘</kbd> <kbd>↵</kbd> 添加</span></div></section>
     <div class="canvas-footer"><span>拖动空白处框选 · Shift 加选 · 空格平移 · ⌘A 全选</span><span id="mode-note">${model.mode==='live'?'生成结果待验证':'连接模型后开始生成'}</span></div>
     <div id="generation-progress" class="generation-progress glass" hidden></div>
   </main>`;
@@ -82,10 +79,6 @@ function renderWorkspace(){
   $('#manual-kind').addEventListener('change',e=>manualKind=e.target.value);
   $('#node-search').addEventListener('input',e=>{search=e.target.value;drawGraph();});
   bindCanvas();drawGraph();updateModelBadge();
-}
-function updatePath(){
-  const paths=selectedPaths(),path=paths[0]||[],node=current();
-  $('#path-bar').innerHTML=`<div class="breadcrumb"><span class="path-caption">当前路径</span>${path.length&&path[0].kind!=='root'?'<span class="independent-label">独立想法</span><span class="crumb-separator">/</span>':''}${path.map((n,i)=>`${i?'<span class="crumb-separator">/</span>':''}<button data-action="locate" data-id="${n.id}" class="${n.id===node.id?'current':''}" title="${esc(n.title)}">${esc(n.kind==='root'?p.title:n.title)}</button>`).join('')}${paths.length>1?`<button class="extra-paths" data-action="details">+${paths.length-1} 条路径</button>`:''}</div><div class="path-reason">${node.kind==='root'?'<span>最初的好奇</span>':`<span>为什么从这里展开</span>`}<p>${esc(node.rationale||'可以为这一步补充关联理由。')}</p></div>`;
 }
 function curve(a,b){
   const ax=a.x+CARD.width/2,ay=a.y+CARD.height/2,bx=b.x+CARD.width/2,by=b.y+CARD.height/2;
@@ -117,7 +110,7 @@ function drawGraph(){
     const a=nodeIndex.get(e.from),b=nodeIndex.get(e.to),c=curve(a,b),active=ancestors.has(e.from)&&ancestors.has(e.to),label=e.merged?'共同点 / 交集':e.relation;
     return `<g class="edge-group ${active?'is-active':''} ${ancestors.size>1&&!active?'is-muted':''} ${e.merged?'merged-edge':''}" data-edge="${e.id}" role="button" tabindex="0" aria-label="查看关联：${esc(a.title)}到${esc(b.title)}">${active?`<path class="edge-halo" d="${c.d}"></path>`:''}<path class="edge-line" d="${c.d}" ${active?'marker-end="url(#path-arrow)"':''}></path>${active?`<path class="edge-flow" d="${c.d}"></path>`:''}<path class="edge-hit" d="${c.d}"></path><g class="edge-label" transform="translate(${c.mx},${c.my})"><rect x="-51" y="-13" width="102" height="26" rx="13"></rect><text y="4" text-anchor="middle">${esc(label)}</text></g></g>`;
   }).join('')+pendingEdgesMarkup();
-  updateView();updatePath();drawShelf();drawOutline();drawNodePanel();updateNotices();paintCanvasSelection();
+  updateView();drawShelf();drawOutline();drawNodePanel();updateNotices();paintCanvasSelection();
   $('#node-count').textContent=`${p.nodes.length} 个想法${focusId?' · 正在聚焦一条分支':''}`;
   $('#canvas-empty').hidden=p.nodes.length>1||!!pending;
   if(p.nodes.length===1)$('#canvas-empty').innerHTML=`<span>${emoji('💡')} 悬停选题中心，在上方选择细化维度。</span><p>场景、痛点、人群，可以从任何一处开始。</p>`;
@@ -173,7 +166,8 @@ function updateView(){
 }
 function fitView(nodes=null,overview=false){
   const surface=$('#surface');if(!surface)return;const r=surface.getBoundingClientRect(),b=boundsOf(nodes||visibleNodes(p,{focusId,showHidden}));
-  const top=108+(showShelf?258:0),bottom=176,left=showOutline?270:38,right=38;
+  const dock=$('.manual-dock').getBoundingClientRect();
+  const top=64+(showShelf?258:0),bottom=Math.max(176,r.bottom-dock.top+24),left=showOutline?270:38,right=38;
   const scale=Math.min(1.05,Math.max(overview?0.08:0.75,Math.min((r.width-left-right)/(b.width+55),(r.height-top-bottom)/(b.height+45))));
   view={scale,x:left+(r.width-left-right)/2-(b.x+b.width/2)*scale,y:top+(r.height-top-bottom)/2-(b.y+b.height/2)*scale};updateView();
 }
