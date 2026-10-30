@@ -74,13 +74,17 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .manual-dock{width:max-content;max-width:calc(100% - 48px);bottom:42px}
 .dock-toolbar{border:0;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;padding:10px 13px;min-height:62px}
 .dock-toolbar .canvas-tools{flex:none;padding:0;border:0;box-shadow:none}
-.branch-tools{display:flex;align-items:center;gap:5px;border-left:1px solid #b9cbe166;padding-left:12px}
-.branch-tools lg-button.glass-action{border-radius:13px;flex:none}
-.branch-tools .lg-button__el{min-height:34px;height:34px;padding:0 11px;color:#4c6585;font-size:11px;font-weight:550;border-radius:13px}
-.branch-tools .lg-surface__tint{border:1px solid #ffffffca;background:#ffffff66}
-.branch-tools lg-button[aria-pressed=true] .lg-surface__tint{background:#dbeaffb3}
-.branch-tools lg-button[disabled]{opacity:1}
+.dock-actions{display:flex;align-items:center;justify-content:center;gap:12px}
+.exploration-tools,.branch-tools{display:flex;align-items:center;gap:5px}
+.branch-tools{border-left:1px solid #b9cbe166;padding-left:12px}
+.dock-actions lg-button.glass-action{border-radius:13px;flex:none}
+.dock-actions .lg-button__el{min-height:34px;height:34px;padding:0 11px;color:#4c6585;font-size:11px;font-weight:550;border-radius:13px}
+.dock-actions .lg-surface__tint{border:1px solid #ffffffca;background:#ffffff66}
+.dock-actions lg-button[aria-pressed=true] .lg-surface__tint{background:#dbeaffb3}
+.dock-actions lg-button[disabled]{opacity:1}
 .dock-toolbar .generation-setting{margin:0;flex:none}
+.exploration-tools .lg-button__label{gap:6px}
+.exploration-tools .icon{width:14px;height:14px}
 .branch-picker{position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%);width:min(360px,calc(100vw - 32px));max-height:320px;overflow:auto;padding:12px;border:1px solid #fffffff0;background:#f6f9f8ed;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:20px;box-shadow:0 14px 44px #21375523}
 .branch-picker-heading{display:flex;align-items:center;justify-content:space-between;padding:0 4px 8px;font-size:12px;color:#425a76}
 .branch-picker-heading .button{font-size:11px;padding:6px 8px}
@@ -89,7 +93,7 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .branch-restore strong{font-size:12px;font-weight:550;line-height:1.5;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#30455e}
 .branch-restore .type-chip{justify-content:flex-start;font-size:9px}
 .branch-restore:hover{background:#e7f0fa70;border-radius:10px}
-.branch-tools button:focus-visible,.branch-restore:focus-visible,.card-edit:focus-visible{outline:3px solid #007aff;outline-offset:3px}
+.dock-actions button:focus-visible,.branch-restore:focus-visible,.card-edit:focus-visible{outline:3px solid #007aff;outline-offset:3px}
 
 /* Edit the existing card in place. Temporary editor size doesn't change graph data. */
 .card-edit{position:absolute;top:-12px;left:-10px;z-index:7;display:grid;place-items:center;width:44px;height:44px;padding:0;border-radius:50%;border:1px solid color-mix(in srgb,var(--card-ink,#007aff) 22%,white);background:color-mix(in srgb,var(--card-ink,#007aff) 13%,white);color:var(--card-ink,#007aff);box-shadow:0 3px 8px #23334f12;cursor:pointer;transition:transform 160ms,filter 160ms}
@@ -129,10 +133,29 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .outline-hidden{opacity:.5}
 .outline-root{padding:0 8px}
 .outline-root .button{text-align:left;font-size:11px;line-height:1.5;width:100%;white-space:normal}
-@media(max-width:1050px){.manual-dock{width:min(730px,calc(100% - 32px))}.dock-toolbar{gap:9px 13px}.dock-toolbar .generation-setting{margin-left:auto}.branch-tools{order:3;border-left:0;border-top:1px solid #b9cbe166;padding:8px 0 0;width:100%;justify-content:center}.workspace{--dock-clearance:182px}}
-@media(max-width:620px){.manual-dock{bottom:32px;max-width:calc(100% - 24px);width:calc(100% - 24px)}.dock-toolbar{gap:7px;padding:9px 8px}.dock-toolbar .canvas-tools{width:100%;justify-content:center}.dock-toolbar .generation-setting{order:4;margin:0}.branch-tools{width:auto;flex:1;padding:0;border:0;justify-content:flex-start;gap:3px}.branch-tools .lg-button__el{padding:0 7px;font-size:10px;height:32px;min-height:32px}.dock-toolbar .generation-setting>span{display:none}lg-segmented#generation-count .lg-seg__option{min-width:24px;padding:0 5px}.workspace{--dock-clearance:190px}.idea-card.is-editing{width:280px}}
-@media(max-width:390px){.branch-tools{width:100%;justify-content:center}.dock-toolbar .generation-setting{margin:0 auto}.workspace{--dock-clearance:220px}}
-@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.branch-tools .lg-surface__glass{visibility:hidden}.branch-tools .lg-surface__tint{background:#f7faff}.branch-picker{background:#f7faff}.edge-group.is-muted .edge-line{opacity:.5}}
+@media(max-width:1120px){
+  .manual-dock{width:min(820px,calc(100% - 32px))}
+  .dock-toolbar{gap:9px 13px}
+  .dock-toolbar .canvas-tools{order:1}
+  .dock-toolbar .generation-setting{order:2;margin-left:auto}
+  .dock-actions{order:3;width:100%;border-top:1px solid #b9cbe166;padding-top:8px}
+  .workspace{--dock-clearance:182px}
+}
+@media(max-width:620px){
+  .manual-dock{bottom:32px;max-width:calc(100% - 24px);width:calc(100% - 24px)}
+  .dock-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:9px 8px}
+  .dock-toolbar .canvas-tools{grid-column:1/-1;grid-row:1;width:100%;justify-content:center}
+  .dock-actions{display:contents}
+  .exploration-tools{grid-column:1;grid-row:2;justify-content:center;gap:5px}
+  .dock-toolbar .generation-setting{grid-column:2;grid-row:2;order:0;margin:0}
+  .branch-tools{grid-column:1/-1;grid-row:3;width:100%;padding:0;border:0;justify-content:center;gap:5px}
+  .dock-actions .lg-button__el{padding:0 9px;font-size:10px;height:32px;min-height:32px}
+  .dock-toolbar .generation-setting>span{display:none}
+  lg-segmented#generation-count .lg-seg__option{min-width:24px;padding:0 5px}
+  .workspace{--dock-clearance:220px}
+  .idea-card.is-editing{width:280px}
+}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.dock-actions .lg-surface__glass{visibility:hidden}.dock-actions .lg-surface__tint{background:#f7faff}.branch-picker{background:#f7faff}.edge-group.is-muted .edge-line{opacity:.5}}
 @media(prefers-reduced-motion:reduce){.idea-card.is-child .card-surface{transform:none}}
 
 /* A canvas is panned by its transform, never by focus-induced native scrolling. */
