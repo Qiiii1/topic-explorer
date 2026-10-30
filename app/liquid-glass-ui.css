@@ -92,11 +92,9 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .branch-tools button:focus-visible,.branch-restore:focus-visible,.card-edit:focus-visible{outline:3px solid #007aff;outline-offset:3px}
 
 /* Edit the existing card in place. Temporary editor size doesn't change graph data. */
-.card-edit{position:absolute;top:10px;left:10px;z-index:5;display:grid;place-items:center;width:30px;height:30px;border-radius:10px;border:1px solid #ffffffbb;background:#ffffff7d;color:#63768a;box-shadow:0 2px 8px #35476008;cursor:pointer}
-.card-edit svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.card-edit:hover{background:#fff;color:#007aff}
-.kind-root .card-edit{color:#c4dbfa;background:#ffffff12;border-color:#ffffff25}
-.kind-root .card-edit:hover{background:#ffffff24;color:#fff}
+.card-edit{position:absolute;top:-12px;left:-10px;z-index:7;display:grid;place-items:center;width:44px;height:44px;padding:0;border-radius:50%;border:1px solid color-mix(in srgb,var(--card-ink,#007aff) 22%,white);background:color-mix(in srgb,var(--card-ink,#007aff) 13%,white);color:var(--card-ink,#007aff);box-shadow:0 3px 8px #23334f12;cursor:pointer;transition:transform 160ms,filter 160ms}
+.card-edit svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.card-edit:hover{transform:scale(1.08);filter:brightness(1.05)}
 .idea-card.is-editing{width:300px;height:auto;min-height:154px;z-index:180;cursor:default;touch-action:auto}
 .idea-card.is-editing .card-surface,.idea-card.is-editing.is-selected .card-surface,.idea-card.is-editing.is-selected:hover .card-surface{min-height:154px;height:auto;padding:48px 17px 16px;overflow:visible;display:block}
 .idea-card.is-editing .dimension-deck,.idea-card.is-editing .node-expand,.idea-card.is-editing .card-star,.idea-card.is-editing .connection-handle,.idea-card.is-editing .card-more{display:none}
@@ -139,3 +137,6 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 
 /* A canvas is panned by its transform, never by focus-induced native scrolling. */
 .canvas-surface{overflow:clip}
+
+/* Relationship labels clear the corner controls in every selection state. */
+.idea-card.is-upstream::after,.idea-card.is-child:not(.is-selected)::after{left:46px}
