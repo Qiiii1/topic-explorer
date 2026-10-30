@@ -68,3 +68,74 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
   .dock-panel lg-segmented>button[aria-checked=true]{background:#fff;color:#0064cc;box-shadow:0 1px 4px #263c651f}
   .view-tools lg-button.glass-action .lg-surface__tint{background:#f7faff}
 }
+
+/* Compact glass dock: canvas tools, branch visibility, generation count. */
+.workspace{--dock-clearance:142px}
+.manual-dock{width:max-content;max-width:calc(100% - 48px);bottom:42px}
+.dock-toolbar{border:0;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;padding:10px 13px;min-height:62px}
+.dock-toolbar .canvas-tools{flex:none;padding:0;border:0;box-shadow:none}
+.branch-tools{display:flex;align-items:center;gap:5px;border-left:1px solid #b9cbe166;padding-left:12px}
+.branch-tools lg-button.glass-action{border-radius:13px;flex:none}
+.branch-tools .lg-button__el{min-height:34px;height:34px;padding:0 11px;color:#4c6585;font-size:11px;font-weight:550;border-radius:13px}
+.branch-tools .lg-surface__tint{border:1px solid #ffffffca;background:#ffffff66}
+.branch-tools lg-button[aria-pressed=true] .lg-surface__tint{background:#dbeaffb3}
+.branch-tools lg-button[disabled]{opacity:1}
+.dock-toolbar .generation-setting{margin:0;flex:none}
+.branch-picker{position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%);width:min(360px,calc(100vw - 32px));max-height:320px;overflow:auto;padding:12px;border:1px solid #fffffff0;background:#f6f9f8ed;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:20px;box-shadow:0 14px 44px #21375523}
+.branch-picker-heading{display:flex;align-items:center;justify-content:space-between;padding:0 4px 8px;font-size:12px;color:#425a76}
+.branch-picker-heading .button{font-size:11px;padding:6px 8px}
+.branch-restore{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;gap:12px;padding:12px 8px;border:0;border-top:1px solid #d9e3ee7a;background:transparent;color:#627996;font-size:10px}
+.branch-restore>span:first-child{display:grid;gap:5px;min-width:0}
+.branch-restore strong{font-size:12px;font-weight:550;line-height:1.5;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#30455e}
+.branch-restore .type-chip{justify-content:flex-start;font-size:9px}
+.branch-restore:hover{background:#e7f0fa70;border-radius:10px}
+.branch-tools button:focus-visible,.branch-restore:focus-visible,.card-edit:focus-visible{outline:3px solid #007aff;outline-offset:3px}
+
+/* Edit the existing card in place. Temporary editor size doesn't change graph data. */
+.card-edit{position:absolute;top:10px;left:10px;z-index:5;display:grid;place-items:center;width:30px;height:30px;border-radius:10px;border:1px solid #ffffffbb;background:#ffffff7d;color:#63768a;box-shadow:0 2px 8px #35476008;cursor:pointer}
+.card-edit svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.card-edit:hover{background:#fff;color:#007aff}
+.kind-root .card-edit{color:#c4dbfa;background:#ffffff12;border-color:#ffffff25}
+.kind-root .card-edit:hover{background:#ffffff24;color:#fff}
+.idea-card.is-editing{width:300px;height:auto;min-height:154px;z-index:180;cursor:default;touch-action:auto}
+.idea-card.is-editing .card-surface,.idea-card.is-editing.is-selected .card-surface,.idea-card.is-editing.is-selected:hover .card-surface{min-height:154px;height:auto;padding:48px 17px 16px;overflow:visible;display:block}
+.idea-card.is-editing .dimension-deck,.idea-card.is-editing .node-expand,.idea-card.is-editing .card-star,.idea-card.is-editing .connection-handle,.idea-card.is-editing .card-more{display:none}
+.idea-card.is-editing .card-edit{pointer-events:none;opacity:.5}
+.inline-editor{display:grid;gap:10px;user-select:text;cursor:default;text-align:left}
+.inline-editor label{display:grid;gap:5px;font-size:10px;color:#687b95;line-height:1.4}
+.inline-editor textarea,.inline-editor select{width:100%;box-sizing:border-box;font:inherit;font-size:12px;line-height:1.6;border:1px solid #c4d1e4;background:#ffffffc9;color:#23354d;border-radius:9px;padding:7px 9px;resize:vertical;min-height:34px;max-height:180px;touch-action:auto;user-select:text}
+.inline-editor textarea:focus,.inline-editor select:focus{outline:2px solid #007aff;outline-offset:1px;background:#fff}
+.inline-editor textarea[aria-invalid=true]{border-color:#ce6152}
+.inline-edit-actions{display:flex;justify-content:flex-end;gap:7px;padding-top:1px}
+.inline-edit-actions .button{padding:7px 14px;min-height:32px;font-size:11px}
+.inline-edit-error{margin:0;font-size:11px;color:#b23b32}
+.kind-root .inline-editor label{color:#d0ddf1}
+.kind-root .inline-edit-actions .button:not(.primary){color:#e1eafa;background:#ffffff16}
+.kind-root .inline-edit-error{color:#ffb1a7}
+
+/* Immediate children remain distinct from the complete ancestor path. */
+.idea-card.is-child:not(.is-selected) .card-surface{border:2px solid #6fa9dc;box-shadow:0 0 0 4px #71b5ef16,0 8px 22px #335a8520;transform:translateY(-2px)}
+.idea-card.is-child:not(.is-selected)::after{content:'下一级';position:absolute;left:14px;top:-14px;z-index:6;font-size:9px;line-height:18px;padding:0 7px;color:#3475a8;background:#f4faff;border:1px solid #b9d9f2;border-radius:6px}
+.idea-card.off-path{opacity:.5}
+.idea-card.is-editing{opacity:1}
+.edge-group .edge-line{stroke:var(--path-color,#7c879b);stroke-width:1.6;opacity:.7}
+.edge-group.is-active .edge-line{stroke:var(--path-color,#278477);stroke-width:3.5;opacity:1}
+.edge-group.is-muted .edge-line{opacity:.25}
+.edge-group.is-active .edge-label text{fill:var(--path-color,#278477)}
+.edge-group.is-child-edge .edge-line{stroke-width:2.7}
+.scene-path-group{margin:14px 0 8px;border-top:1px solid #dfe6ef; padding-top:12px}
+.scene-path-group h3{display:flex;gap:7px;align-items:center;padding:0 15px;margin:0 0 6px;font-size:11px;color:#465971;font-weight:600}
+.scene-path-group h3>span:last-child{margin-left:auto;color:#8a97a9;font-size:10px}
+.scene-swatch{width:8px;height:8px;background:var(--path-color);border-radius:50%;flex:none}
+.outline-item small{display:block;font-size:9px;font-weight:400;color:#8c99a9;margin-bottom:2px}
+.outline-hidden{opacity:.5}
+.outline-root{padding:0 8px}
+.outline-root .button{text-align:left;font-size:11px;line-height:1.5;width:100%;white-space:normal}
+@media(max-width:1050px){.manual-dock{width:min(730px,calc(100% - 32px))}.dock-toolbar{gap:9px 13px}.dock-toolbar .generation-setting{margin-left:auto}.branch-tools{order:3;border-left:0;border-top:1px solid #b9cbe166;padding:8px 0 0;width:100%;justify-content:center}.workspace{--dock-clearance:182px}}
+@media(max-width:620px){.manual-dock{bottom:32px;max-width:calc(100% - 24px);width:calc(100% - 24px)}.dock-toolbar{gap:7px;padding:9px 8px}.dock-toolbar .canvas-tools{width:100%;justify-content:center}.dock-toolbar .generation-setting{order:4;margin:0}.branch-tools{width:auto;flex:1;padding:0;border:0;justify-content:flex-start;gap:3px}.branch-tools .lg-button__el{padding:0 7px;font-size:10px;height:32px;min-height:32px}.dock-toolbar .generation-setting>span{display:none}lg-segmented#generation-count .lg-seg__option{min-width:24px;padding:0 5px}.workspace{--dock-clearance:190px}.idea-card.is-editing{width:280px}}
+@media(max-width:390px){.branch-tools{width:100%;justify-content:center}.dock-toolbar .generation-setting{margin:0 auto}.workspace{--dock-clearance:220px}}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.branch-tools .lg-surface__glass{visibility:hidden}.branch-tools .lg-surface__tint{background:#f7faff}.branch-picker{background:#f7faff}.edge-group.is-muted .edge-line{opacity:.5}}
+@media(prefers-reduced-motion:reduce){.idea-card.is-child .card-surface{transform:none}}
+
+/* A canvas is panned by its transform, never by focus-induced native scrolling. */
+.canvas-surface{overflow:clip}

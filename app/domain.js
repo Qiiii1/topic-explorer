@@ -1,3 +1,4 @@
+import {inferSceneCategory,validSceneCategory} from './scene-categories.js';
 export const VERSION = 1;
 export const KINDS = {
   root: { label: '选题中心', short: '想法', icon: 'lightbulb' },
@@ -102,6 +103,55 @@ export function planNearbySpace(nodes, anchor, count, protectedIds = new Set([an
   const positions=surroundingPositions(nodes,anchor,count,nodes.length*.73,protectedIds);
   return {positions,moves:makeRoomForPositions(nodes,positions,protectedIds)};
 }
+// Reserve the complete batch before requesting the model. Dense sources escape
+// with their branch; the preview is pure so cancelling restores the exact canvas.
+export function planGenerationSpace(project,parentId,count) {
+  const parent=project.nodes.find(node=>node.id===parentId);
+  if(!parent)throw new Error('来源卡片已不存在');
+  const upstream=new Set(ancestorsOf(project,parentId).map(node=>node.id));
+  const branch=descendantsOf(project,parentId),others=project.nodes.filter(node=>!branch.has(node.id));
+  const density=point=>others.reduce((total,node)=>total+Math.exp(-(((point.x-node.x)/layoutGap.x)**2+((point.y-node.y)/layoutGap.y)**2)/2),0);
+  let anchor={...parent};
+  const localDensity=project.nodes.filter(node=>node.id!==parentId&&Math.hypot((node.x-parent.x)/layoutGap.x,(node.y-parent.y)/layoutGap.y)<2.2).length;
+  if(parent.kind!=='root'&&localDensity>=4) {
+    const local=others.filter(node=>Math.hypot((node.x-parent.x)/layoutGap.x,(node.y-parent.y)/layoutGap.y)<3);
+    const centre=local.reduce((sum,node)=>({x:sum.x+node.x/local.length,y:sum.y+node.y/local.length}),{x:0,y:0});
+    const away=Math.atan2(parent.y-centre.y,parent.x-centre.x);
+    let best=localDensity*4;
+    for(let ring=1;ring<=3;ring++)for(let i=0;i<12;i++) {
+      const angle=away+i*Math.PI/6,point={x:parent.x+Math.cos(angle)*ring*layoutGap.x,y:parent.y+Math.sin(angle)*ring*layoutGap.y};
+      if(others.some(node=>collides(node,point)))continue;
+      const score=density(point)*4+ring*.65;
+      if(score<best){best=score;anchor={...parent,...point};}
+    }
+  }
+  const dx=anchor.x-parent.x,dy=anchor.y-parent.y,moves=new Map();
+  const preview=project.nodes.map(node=>{
+    if(branch.has(node.id)&&(dx||dy)){const position={x:node.x+dx,y:node.y+dy};moves.set(node.id,position);return {...node,...position};}
+    return {...node};
+  });
+  const protectedIds=new Set(upstream);
+  const plan=planNearbySpace(preview,anchor,count,protectedIds);
+  for(const [id,position] of plan.moves)moves.set(id,position);
+  // Physics smooths the movement, while this final packing pass guarantees that
+  // a tightly stacked old cluster cannot overlap the reserved batch at rest.
+  const settled=project.nodes.map(node=>({...node,...moves.get(node.id)}));
+  const placed=[...plan.positions,...settled.filter(node=>protectedIds.has(node.id))];
+  for(const node of settled.filter(node=>!protectedIds.has(node.id))) {
+    if(placed.some(other=>collides(other,node))) {
+      let position;
+      for(let ring=1;!position;ring++) {
+        const slots=[];
+        for(let x=-ring;x<=ring;x++)for(let y=-ring;y<=ring;y++)if(Math.max(Math.abs(x),Math.abs(y))===ring)slots.push({x:node.x+x*layoutGap.x,y:node.y+y*layoutGap.y});
+        slots.sort((a,b)=>(a.x-node.x)**2+(a.y-node.y)**2-((b.x-node.x)**2+(b.y-node.y)**2));
+        position=slots.find(slot=>!placed.some(other=>collides(other,slot)));
+      }
+      Object.assign(node,position);moves.set(node.id,position);
+    }
+    placed.push(node);
+  }
+  return {positions:plan.positions,moves,anchor};
+}
 export function branchPositions(project, nodeId) {
   const ids=new Set((Array.isArray(nodeId)?nodeId:[nodeId]).flatMap(id=>[...descendantsOf(project,id)]));
   return new Map(project.nodes.filter(n=>ids.has(n.id)).map(n=>[n.id,{x:n.x,y:n.y}]));
@@ -191,12 +241,13 @@ export function appendGenerated(project, parentId, kind, candidates, origin = 'd
   const parent = project.nodes.find(n => n.id === parentId);
   if (!parent || !KINDS[kind] || kind === 'root') throw new Error('请先选中一个有效节点');
   const protectedIds=new Set(ancestorsOf(project,parentId).map(n=>n.id));
-  const positions = reserved || planNearbySpace(project.nodes, parent, candidates.length,protectedIds).positions;
-  const moves=makeRoomForPositions(project.nodes,positions,protectedIds);
+  const positions = reserved?.positions || reserved || planNearbySpace(project.nodes, parent, candidates.length,protectedIds).positions;
+  const moves=reserved?.moves || makeRoomForPositions(project.nodes,positions,protectedIds);
   for(const node of project.nodes)if(moves.has(node.id))Object.assign(node,moves.get(node.id));
   const nodes = candidates.map((item, i) => {
     const pos = positions[i];
     const node = { id: uid(), kind, title: String(item.title).slice(0, 90), description: String(item.description || '').slice(0, 1600), rationale: String(item.rationale || '').slice(0, 1600), parentIds: [parent.id], ...pos, origin };
+    if(kind==='scene')node.sceneCategory=inferSceneCategory({...node,sceneCategory:item.sceneCategory});
     project.nodes.push(node); project.edges.push({ id: uid(), from: parent.id, to: node.id, relation: parent.kind === kind ? '继续细化' : `探索${KINDS[kind].label}`, rationale: node.rationale });
     return node;
   });
@@ -226,6 +277,7 @@ export function mergeNodes(project, aId, bId, candidate, origin = 'demo', reserv
   const moves=makeRoomForPositions(project.nodes,[pos],protectedIds);
   for(const node of project.nodes)if(moves.has(node.id))Object.assign(node,moves.get(node.id));
   const node = { id: uid(), kind: a.kind, title: String(candidate.title).slice(0, 90), description: String(candidate.description || '').slice(0, 1600), rationale: String(candidate.rationale || '').slice(0, 1600), parentIds: [a.id, b.id], ...pos, origin, merged: true };
+  if(node.kind==='scene')node.sceneCategory=inferSceneCategory({...node,sceneCategory:candidate.sceneCategory});
   project.nodes.push(node);
   for (const p of [a, b]) project.edges.push({ id: uid(), from: p.id, to: node.id, relation: '共同点 / 交集', rationale: node.rationale, merged: true });
   project.updatedAt = new Date().toISOString(); return node;
@@ -268,6 +320,7 @@ export function validateProject(value) {
     for(const n of graph.nodes){
       if(!validId(n.id)||ids.has(n.id)||!Object.hasOwn(KINDS,n.kind)||typeof n.title!=='string'||n.title.length>200||!Array.isArray(n.parentIds)||n.parentIds.length>2||!Number.isFinite(n.x)||!Number.isFinite(n.y))throw new Error('项目卡片格式不正确');
       if(n.kind==='root'&&n.parentIds.length)throw new Error('选题中心不能有上层节点');
+      if(n.sceneCategory!==undefined&&!validSceneCategory(n.sceneCategory))throw new Error('场景分类格式不正确');
       ids.add(n.id);
     }
     for(const n of graph.nodes){if(n.parentIds.some(id=>!ids.has(id))||new Set(n.parentIds).size!==n.parentIds.length)throw new Error('项目中有找不到来源的卡片');getPaths(graph,n.id);}
