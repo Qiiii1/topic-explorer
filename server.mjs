@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve, dirname, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { demoGenerate } from './app/demo.js';
+import {validateInspirationRequest} from './app/inspiration.js';
 import { validateCandidates, normalizeConfig, providerError, generationPayload } from './app/model-protocol.js';
 export { validateCandidates } from './app/model-protocol.js';
 
@@ -45,10 +46,11 @@ export function createPrototypeServer(initialConfig=null,{fetcher=fetch}={}){
     }
     if(url.pathname==='/api/model/clear'){config=null;return send(200,{mode:'demo'});}
     if(url.pathname!=='/api/generate')return send(404,{error:'未找到操作'});
-    if(!['expand','merge'].includes(input.operation))return send(400,{error:'请选择探索或关联操作'});
+    if(!['expand','merge','inspire'].includes(input.operation))return send(400,{error:'请选择探索或关联操作'});
+    if(input.operation==='inspire')validateInspirationRequest(input);
     if(input.operation==='expand'&&(!input.node||!['scene','pain','people'].includes(input.targetKind)||![3,6,10].includes(input.count)))return send(400,{error:'生成条件不完整'});
     if(input.operation==='merge'&&(!Array.isArray(input.nodes)||input.nodes.length!==2||input.nodes[0].id===input.nodes[1].id||input.nodes[0].kind!==input.nodes[1].kind||!['scene','pain','people'].includes(input.nodes[0].kind)))return send(400,{error:'只能关联两张不同的同类卡片'});
-    if(!config){if(input.demo===true)return send(200,demoGenerate(input));return send(503,{error:'请先在模型设置中连接真实 AI 服务。示例项目只提供预置内容，不会代替真实生成。'});}
+    if(!config){if(input.demo===true&&input.operation!=='inspire')return send(200,demoGenerate(input));return send(503,{error:'请先在模型设置中连接真实 AI 服务。示例项目只提供预置内容，不会代替真实生成。'});}
     const controller=new AbortController();res.on('close',()=>{if(!res.writableEnded)controller.abort();});
     const endpoint=config.baseUrl.endsWith('/chat/completions')?config.baseUrl:config.baseUrl+'/chat/completions';
     const payload=generationPayload(input,config);
@@ -56,7 +58,7 @@ export function createPrototypeServer(initialConfig=null,{fetcher=fetch}={}){
     if(!upstream.ok)throw new Error(await providerError(upstream,config));
     const result=await upstream.json();const content=result.choices?.[0]?.message?.content;
     if(typeof content!=='string')throw new Error('模型返回了空结果，可以调整模型后重试。');
-    return send(200,{mode:'live',...validateCandidates(content,input.operation==='merge'?1:input.count)});
+    return send(200,{mode:'live',...validateCandidates(content,input.operation==='merge'?1:input.count,input.operation)});
    }
    if(req.method!=='GET'&&req.method!=='HEAD'){res.writeHead(405);return res.end();}
    const requested=decodeURIComponent(url.pathname),file=resolve(directory,'.'+(requested==='/'?'/index.html':requested));

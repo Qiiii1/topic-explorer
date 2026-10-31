@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, qiiii-test]
   pull_request:
   workflow_dispatch:
 

@@ -1,10 +1,12 @@
 import {inferSceneCategory,validSceneCategory} from './scene-categories.js';
+import {normalizeInspiration,canvasMode} from './inspiration.js';
 export const VERSION = 1;
 export const KINDS = {
   root: { label: '选题中心', short: '想法', icon: 'lightbulb' },
   scene: { label: '场景', short: '场景', icon: 'locate-fixed' },
   pain: { label: '痛点', short: '痛点', icon: 'sparkles' },
   people: { label: '人群', short: '人群', icon: 'git-branch' },
+  inspiration: { label: '灵感', short: '灵感', icon: 'sparkles' },
 };
 export const CARD = { width: 244, height: 154 };
 export const uid = () => crypto.randomUUID();
@@ -161,7 +163,7 @@ export function moveBranch(project, origins, dx, dy) {
   for(const node of project.nodes){const origin=origins.get(node.id);if(origin){node.x=origin.x+dx;node.y=origin.y+dy;moved.push(node);}}
   return moved;
 }
-export const canCombine = (a,b) => !!a&&!!b&&a.id!==b.id&&a.kind!=='root'&&a.kind===b.kind;
+export const canCombine = (a,b) => !!a&&!!b&&a.id!==b.id&&['scene','pain','people'].includes(a.kind)&&a.kind===b.kind;
 
 // Each mainline gets its own vertical band; a shared idea is placed once, with both edges kept.
 export function arrangeByMainline(project) {
@@ -240,6 +242,7 @@ export function importSelection(value) {
 export function appendGenerated(project, parentId, kind, candidates, origin = 'demo', reserved = null) {
   const parent = project.nodes.find(n => n.id === parentId);
   if (!parent || !KINDS[kind] || kind === 'root') throw new Error('请先选中一个有效节点');
+  const inspirations=kind==='inspiration'?candidates.map(item=>normalizeInspiration(item.inspiration,true)):null;
   const protectedIds=new Set(ancestorsOf(project,parentId).map(n=>n.id));
   const positions = reserved?.positions || reserved || planNearbySpace(project.nodes, parent, candidates.length,protectedIds).positions;
   const moves=reserved?.moves || makeRoomForPositions(project.nodes,positions,protectedIds);
@@ -248,7 +251,8 @@ export function appendGenerated(project, parentId, kind, candidates, origin = 'd
     const pos = positions[i];
     const node = { id: uid(), kind, title: String(item.title).slice(0, 90), description: String(item.description || '').slice(0, 1600), rationale: String(item.rationale || '').slice(0, 1600), parentIds: [parent.id], ...pos, origin };
     if(kind==='scene')node.sceneCategory=inferSceneCategory({...node,sceneCategory:item.sceneCategory});
-    project.nodes.push(node); project.edges.push({ id: uid(), from: parent.id, to: node.id, relation: parent.kind === kind ? '继续细化' : `探索${KINDS[kind].label}`, rationale: node.rationale });
+    if(kind==='inspiration')node.inspiration=inspirations[i];
+    project.nodes.push(node); project.edges.push({ id: uid(), from: parent.id, to: node.id, relation: kind==='inspiration'?'跨界联想':parent.kind === kind ? '继续细化' : `探索${KINDS[kind].label}`, rationale: node.rationale });
     return node;
   });
   project.updatedAt = new Date().toISOString(); return nodes;
@@ -321,6 +325,7 @@ export function validateProject(value) {
       if(!validId(n.id)||ids.has(n.id)||!Object.hasOwn(KINDS,n.kind)||typeof n.title!=='string'||n.title.length>200||!Array.isArray(n.parentIds)||n.parentIds.length>2||!Number.isFinite(n.x)||!Number.isFinite(n.y))throw new Error('项目卡片格式不正确');
       if(n.kind==='root'&&n.parentIds.length)throw new Error('选题中心不能有上层节点');
       if(n.sceneCategory!==undefined&&!validSceneCategory(n.sceneCategory))throw new Error('场景分类格式不正确');
+      if(n.kind==='inspiration')normalizeInspiration(n.inspiration,true);
       ids.add(n.id);
     }
     for(const n of graph.nodes){if(n.parentIds.some(id=>!ids.has(id))||new Set(n.parentIds).size!==n.parentIds.length)throw new Error('项目中有找不到来源的卡片');getPaths(graph,n.id);}
@@ -334,7 +339,7 @@ export function validateProject(value) {
     const expected=getPaths(f.snapshot,f.nodeId).map(path=>path.map(n=>n.id));
     if(!expected.length||JSON.stringify(expected)!==JSON.stringify(f.snapshot.paths))throw new Error('收藏路径不完整');
   }
-  const project = clone(value); project.favorites ||= []; project.context ||= ''; project.generationCount = [3, 6, 10].includes(value.generationCount) ? value.generationCount : 3; return project;
+  const project = clone(value); project.favorites ||= []; project.context ||= ''; project.canvasMode=canvasMode(value); project.generationCount = [3, 6, 10].includes(value.generationCount) ? value.generationCount : 3; return project;
 }
 export function toMarkdown(project, saved = null) {
   const nodes = saved?.snapshot.nodes || project.nodes;
@@ -347,6 +352,6 @@ export function toMarkdown(project, saved = null) {
     out += '\n';
   }
   out += '## 探索节点\n\n';
-  for (const n of nodes) out += `### ${KINDS[n.kind].label}：${n.title}\n\n${n.description || ''}\n\n${n.parentIds.length?`上层想法：${n.parentIds.map(id=>nodes.find(v=>v.id===id)?.title||'').join(' / ')}\n\n`:''}关联理由：${n.rationale || '尚未补充'}\n\n`;
+  for (const n of nodes) out += `### ${KINDS[n.kind].label}：${n.title}\n\n${n.description || ''}\n\n${n.inspiration?`组合元素：${n.inspiration.element}\n\n连接点：${n.inspiration.mechanism}\n\n联想跨度：${n.inspiration.span}\n\n`:''}${n.parentIds.length?`上层想法：${n.parentIds.map(id=>nodes.find(v=>v.id===id)?.title||'').join(' / ')}\n\n`:''}关联理由：${n.rationale || '尚未补充'}\n\n`;
   return out + '\n---\n以上候选方向仍需通过资料或调研验证。\n';
 }
