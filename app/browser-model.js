@@ -1,4 +1,4 @@
-import {normalizeConfig,providerError,generationPayload,validateCandidates} from './model-protocol.js';
+import {normalizeConfig,providerError,generationPayload,validateGenerationInput,generationResult} from './model-protocol.js';
 
 // One instance belongs to one open page. Credentials never enter storage or project data.
 export function createBrowserModelClient({fetcher=fetch}={}){
@@ -49,13 +49,11 @@ export function createBrowserModelClient({fetcher=fetch}={}){
     }
     if(path!=='/generate')throw new Error('未找到操作');
     if(!config)throw new Error('请先连接你的 AI 服务，再生成卡片。');
-    if(!['expand','merge'].includes(input.operation))throw new Error('请选择探索或关联操作');
-    if(input.operation==='expand'&&(!input.node||!['scene','pain','people'].includes(input.targetKind)||![3,6,10].includes(input.count)))throw new Error('生成条件不完整');
-    if(input.operation==='merge'&&(!Array.isArray(input.nodes)||input.nodes.length!==2||input.nodes[0].id===input.nodes[1].id||input.nodes[0].kind!==input.nodes[1].kind||!['scene','pain','people'].includes(input.nodes[0].kind)))throw new Error('只能关联两张不同的同类卡片');
+    validateGenerationInput(input);
     const connection=config,result=await send(connection,'/chat/completions',{body:generationPayload(input,connection),signal,timeout:90000});
     if(signal?.aborted)throw new DOMException('生成已取消','AbortError');
     const content=result.choices?.[0]?.message?.content;
     if(typeof content!=='string')throw new Error('模型返回了空结果，可以调整模型后重试。');
-    return {mode:'live',...validateCandidates(content,input.operation==='merge'?1:input.count)};
+    return {mode:'live',...generationResult(content,input)};
   }};
 }

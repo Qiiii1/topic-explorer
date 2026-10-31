@@ -1,6 +1,8 @@
 import {inferSceneCategory,validSceneCategory} from './scene-categories.js';
 export const VERSION = 1;
 export const KINDS = {
+  direction: { label: '方向', short: '方向', icon: 'git-branch' },
+  idea: { label: '方案', short: '方案', icon: 'sparkles' },
   root: { label: '选题中心', short: '想法', icon: 'lightbulb' },
   scene: { label: '场景', short: '场景', icon: 'locate-fixed' },
   pain: { label: '痛点', short: '痛点', icon: 'sparkles' },
@@ -15,7 +17,7 @@ export function createProject(description, title = '') {
     version: VERSION, id, title: title.trim() || description.trim().split(/[。！？\n]/)[0].slice(0, 22) || '未命名探索',
     description: description.trim(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     nodes: [{ id: uid(), kind: 'root', title: description.trim().slice(0, 42) || '一个还不确定的想法', description: description.trim(), rationale: '这次探索最初想弄清楚的事。', parentIds: [], x: 0, y: 0, origin: 'manual' }],
-    edges: [], favorites: [], context: '', generationCount: 3,
+    edges: [], favorites: [], context: '', generationCount: 3, explorationMode: 'organize',
   };
 }
 export const rootOf = p => p.nodes.find(n => n.kind === 'root');
@@ -161,7 +163,7 @@ export function moveBranch(project, origins, dx, dy) {
   for(const node of project.nodes){const origin=origins.get(node.id);if(origin){node.x=origin.x+dx;node.y=origin.y+dy;moved.push(node);}}
   return moved;
 }
-export const canCombine = (a,b) => !!a&&!!b&&a.id!==b.id&&a.kind!=='root'&&a.kind===b.kind;
+export const canCombine = (a,b) => !!a&&!!b&&a.id!==b.id&&['scene','pain','people'].includes(a.kind)&&a.kind===b.kind;
 
 // Each mainline gets its own vertical band; a shared idea is placed once, with both edges kept.
 export function arrangeByMainline(project) {
@@ -225,7 +227,7 @@ export function selectionExport(project, ids) {
   const selected=new Set(ids),nodes=clone(project.nodes.filter(n=>selected.has(n.id)));
   if(!nodes.length)throw new Error('请先框选要导出的卡片');
   for(const n of nodes){n.parentIds=n.parentIds.filter(id=>selected.has(id));n.merged=n.parentIds.length>1;}
-  return {format:'topic-explorer-selection',version:VERSION,title:project.title+' · 选区',description:`选中的 ${nodes.length} 张卡片`,context:'',nodes,edges:clone(project.edges.filter(e=>selected.has(e.from)&&selected.has(e.to))),favorites:[]};
+  return {format:'topic-explorer-selection',explorationMode:project.explorationMode||'organize',version:VERSION,title:project.title+' · 选区',description:`选中的 ${nodes.length} 张卡片`,context:'',nodes,edges:clone(project.edges.filter(e=>selected.has(e.from)&&selected.has(e.to))),favorites:[]};
 }
 export function importSelection(value) {
   if(value?.format!=='topic-explorer-selection'||value.version!==VERSION||!Array.isArray(value.nodes)||!value.nodes.length||!Array.isArray(value.edges)||typeof value.title!=='string')throw new Error('这不是有效的选区文件');
@@ -233,6 +235,7 @@ export function importSelection(value) {
   const originalRoot=nodes.find(n=>n.kind==='root'),root=originalRoot||rootOf(project);
   // Validate the original selection before attaching its independent entries to a new centre.
   project.nodes=originalRoot?nodes:[root,...nodes];project.edges=edges;
+  project.explorationMode=value.explorationMode==='inspiration'||nodes.some(n=>['direction','idea'].includes(n.kind))?'inspiration':'organize';
   validateProject(project);
   if(!originalRoot)for(const n of nodes)if(!n.parentIds.length){n.parentIds=[root.id];project.edges.push({id:uid(),from:root.id,to:n.id,relation:'选区入口',rationale:n.rationale||'从导入的选区继续探索。'});}
   return validateProject(project);
@@ -249,6 +252,8 @@ export function appendGenerated(project, parentId, kind, candidates, origin = 'd
     const node = { id: uid(), kind, title: String(item.title).slice(0, 90), description: String(item.description || '').slice(0, 1600), rationale: String(item.rationale || '').slice(0, 1600), parentIds: [parent.id], ...pos, origin };
     if(kind==='scene')node.sceneCategory=inferSceneCategory({...node,sceneCategory:item.sceneCategory});
     project.nodes.push(node); project.edges.push({ id: uid(), from: parent.id, to: node.id, relation: parent.kind === kind ? '继续细化' : `探索${KINDS[kind].label}`, rationale: node.rationale });
+    if(item.meta)node.meta=clone(item.meta);
+    if(kind==='direction'||kind==='idea')project.edges.at(-1).relation=kind==='direction'?'探索方向':parent.kind==='direction'?'形成方案':'演进方案';
     return node;
   });
   project.updatedAt = new Date().toISOString(); return nodes;
@@ -334,7 +339,12 @@ export function validateProject(value) {
     const expected=getPaths(f.snapshot,f.nodeId).map(path=>path.map(n=>n.id));
     if(!expected.length||JSON.stringify(expected)!==JSON.stringify(f.snapshot.paths))throw new Error('收藏路径不完整');
   }
-  const project = clone(value); project.favorites ||= []; project.context ||= ''; project.generationCount = [3, 6, 10].includes(value.generationCount) ? value.generationCount : 3; return project;
+  if(value.explorationMode!==undefined&&!['organize','inspiration'].includes(value.explorationMode))throw new Error('探索模式格式不正确');
+  if(value.inspirationCount!==undefined&&![1,3,6,10].includes(value.inspirationCount))throw new Error('灵感生成数量格式不正确');
+  const project = clone(value); project.explorationMode ||= 'organize';
+  // Earlier UI-only mode switches kept organizer nodes; preserve them until the user switches again.
+  if(project.explorationMode==='inspiration'&&project.nodes.some(n=>['scene','pain','people'].includes(n.kind)))project.explorationMode='organize';
+  project.favorites ||= []; project.context ||= ''; project.generationCount = [3, 6, 10].includes(value.generationCount) ? value.generationCount : 3; return project;
 }
 export function toMarkdown(project, saved = null) {
   const nodes = saved?.snapshot.nodes || project.nodes;
@@ -349,4 +359,15 @@ export function toMarkdown(project, saved = null) {
   out += '## 探索节点\n\n';
   for (const n of nodes) out += `### ${KINDS[n.kind].label}：${n.title}\n\n${n.description || ''}\n\n${n.parentIds.length?`上层想法：${n.parentIds.map(id=>nodes.find(v=>v.id===id)?.title||'').join(' / ')}\n\n`:''}关联理由：${n.rationale || '尚未补充'}\n\n`;
   return out + '\n---\n以上候选方向仍需通过资料或调研验证。\n';
+}
+
+// Both modes start afresh from the same complete brief; old snapshots must not leak across modes.
+export function switchExplorationMode(project, mode) {
+  if(!['organize','inspiration'].includes(mode))throw new Error('未知探索模式');
+  if((project.explorationMode||'organize')===mode)return false;
+  const root=rootOf(project);
+  project.nodes=[{...root,parentIds:[],x:0,y:0,hidden:false}];
+  project.edges=[];project.favorites=[];project.explorationMode=mode;
+  project.updatedAt=new Date().toISOString();
+  return true;
 }

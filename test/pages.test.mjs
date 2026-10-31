@@ -19,6 +19,7 @@ test('GitHub Pages：子目录资源可解析，发布包启用浏览器模型�
       await readFile(resolve(output,url.pathname.slice('/topic-explorer/'.length)));
     }
     const files=await readdir(output,{recursive:true});
+    assert.ok(files.includes('inspiration.js')&&files.includes('inspiration-rules.js'));
     assert.ok(files.includes('browser-model.js')&&files.includes('model-protocol.js')&&files.includes('.nojekyll'));
     assert.ok(files.every(file=>!/(?:^|\/)\.env|server\.mjs|test\/|reference\//.test(file)));
     assert.doesNotMatch(await readFile(new URL('../app/index.html',import.meta.url),'utf8'),/topic-runtime/);
