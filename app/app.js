@@ -76,7 +76,7 @@ function renderWorkspace(){
     <aside id="outline" class="outline glass ${showOutline?'is-open':''}" aria-label="探索路径"></aside>
     <aside id="node-panel" class="node-panel glass" aria-label="当前卡片操作" hidden></aside>
     <div id="selection-notice" class="selection-notice glass" hidden></div>
-    <section class="manual-dock" aria-label="画布工具栏"><div class="mode-dock" aria-label="探索模式切换"><lg-segmented id="exploration-mode" value="${p.explorationMode==='inspiration'?'inspiration':'organize'}" label="探索模式" refraction="5"><button value="organize">梳理模式</button><button value="inspiration">灵感模式</button></lg-segmented></div><div id="branch-picker" class="branch-picker" hidden></div><lg-panel class="dock-panel" tone="light" radius="26" refraction="20" bezel="0.32" blur="3" chroma="0.12" backdrop="#surface"><div class="dock-toolbar"><div class="canvas-tools" role="group" aria-label="画布操作"><div class="history-tools" role="group" aria-label="生成历史">${glassAction('撤回生成，Command Z','undo',{glyph:'undo',iconOnly:true,disabled:!generations.canUndo(p)})}${glassAction('恢复生成，Command Shift Z','redo',{glyph:'undo',iconOnly:true,class:'redo-icon',disabled:!generations.canRedo()})}</div><span class="tool-separator"></span><div class="zoom-tools" role="group" aria-label="画布缩放">${glassAction('缩小','zoom-out',{glyph:'minus',iconOnly:true})}${glassAction(Math.round(view.scale*100)+'%','fit',{class:'zoom-value',extra:'id="zoom-value" aria-label="适应画面" title="适应画面"'})}${glassAction('放大','zoom-in',{glyph:'plus',iconOnly:true})}</div></div><div class="dock-actions"><div class="exploration-tools" role="group" aria-label="探索管理">${glassAction('一键整理','arrange',{icon:'layers',iconOnly:true,title:'按主线整理画布'})}${glassAction(showOutline?'收起探索路径':'探索路径','outline',{icon:'branch',iconOnly:true,extra:`aria-pressed="${showOutline}" aria-controls="outline"`})}</div><div class="branch-tools" role="group" aria-label="分支显示"><button type="button" class="branch-menu-toggle" data-action="branch-menu" aria-expanded="false" aria-controls="branch-picker">分支<span aria-hidden="true">⌄</span></button></div></div><div class="generation-setting"><span>数量</span><lg-segmented id="generation-count" value="${p.generationCount}" label="每次生成数量" refraction="5">${[3,6,10].map(n=>`<button value="${n}">${n}</button>`).join('')}</lg-segmented></div></div></lg-panel></section>
+    <section class="manual-dock" aria-label="画布工具栏"><div class="mode-dock" aria-label="探索模式切换"><lg-segmented id="exploration-mode" value="${p.explorationMode==='inspiration'?'inspiration':'organize'}" label="探索模式" refraction="5"><button value="organize">梳理模式</button><button value="inspiration">灵感模式</button></lg-segmented></div><div id="branch-picker" class="branch-picker" hidden></div><lg-panel class="dock-panel" tone="light" radius="26" refraction="20" bezel="0.32" blur="3" chroma="0.12" backdrop="#surface"><div class="dock-toolbar"><div class="canvas-tools" role="group" aria-label="画布操作">${glassAction('撤回生成，Command Z','undo',{glyph:'undo',iconOnly:true,disabled:!generations.canUndo(p)})}${glassAction('恢复生成，Command Shift Z','redo',{glyph:'undo',iconOnly:true,class:'redo-icon',disabled:!generations.canRedo()})}<span class="tool-separator"></span>${glassAction('缩小','zoom-out',{glyph:'minus',iconOnly:true})}${glassAction(Math.round(view.scale*100)+'%','fit',{class:'zoom-value',extra:'id="zoom-value" aria-label="适应画面" title="适应画面"'})}${glassAction('放大','zoom-in',{glyph:'plus',iconOnly:true})}</div><div class="dock-actions"><div class="exploration-tools" role="group" aria-label="探索管理">${glassAction('一键整理','arrange',{icon:'layers',iconOnly:true,title:'按主线整理画布'})}${glassAction(showOutline?'收起探索路径':'探索路径','outline',{icon:'branch',iconOnly:true,extra:`aria-pressed="${showOutline}" aria-controls="outline"`})}</div><div class="branch-tools" role="group" aria-label="分支显示">${glassAction('收起分支','hide-selected',{extra:'aria-label="收起选中卡片及其分支"'})}${glassAction('显示分支','branch-menu',{extra:'aria-expanded="false" aria-controls="branch-picker"'})}${glassAction(focusId?'全部分支':'只看分支','focus-selected',{extra:`aria-pressed="${!!focusId}"`})}</div></div><div class="generation-setting"><span>生成</span><lg-segmented id="generation-count" value="${p.generationCount}" label="每次生成数量" refraction="5">${[3,6,10].map(n=>`<button value="${n}">${n}</button>`).join('')}</lg-segmented><span>张</span></div></div></lg-panel></section>
     <div id="generation-progress" class="generation-progress glass" hidden></div>
   </main>`;
   $$('lg-button[aria-pressed]').forEach(host=>$('button',host)?.setAttribute('aria-pressed',host.getAttribute('aria-pressed')));
@@ -225,17 +225,16 @@ function drawOutline(){
   }).join('')}`;
 }
 function drawBranchControls(){
-  const hidden=p.nodes.filter(node=>node.hidden),show=$('[data-action="branch-menu"]');
+  const hidden=p.nodes.filter(node=>node.hidden),hide=$('[data-action="hide-selected"]'),show=$('[data-action="branch-menu"]'),focus=$('[data-action="focus-selected"]');
   const blocked=!!pending||!!editing;
-  show?.toggleAttribute('disabled',blocked);
-  show?.setAttribute('aria-expanded',String(branchMenu));
+  hide?.toggleAttribute('disabled',blocked||!selected||current()?.kind==='root'||canvasSelection.size!==1);
+  show?.toggleAttribute('disabled',blocked||!hidden.length);
+  show?.setAttribute('aria-expanded',String(branchMenu&&hidden.length>0));
+  $('button',show)?.setAttribute('aria-expanded',String(branchMenu&&hidden.length>0));
+  focus?.toggleAttribute('disabled',blocked||!focusId&&(!selected||current()?.kind==='root'||canvasSelection.size!==1));
   const picker=$('#branch-picker');if(!picker)return;
-  picker.hidden=!branchMenu;
-  const canAct=!blocked&&selected&&current()?.kind!=='root'&&canvasSelection.size===1;
-  picker.innerHTML=`<div class="branch-picker-heading"><strong>分支管理</strong>${iconButton('关闭分支菜单','branch-menu','close')}</div>
-    <div class="branch-menu-actions">${button('收起当前分支','hide-selected',{disabled:!canAct})}${button(focusId?'显示全部分支':'只看当前分支','focus-selected',{disabled:blocked||!focusId&&!canAct})}</div>
-    <div class="branch-picker-heading branch-hidden-heading"><strong>已收起 · ${hidden.length}</strong>${hidden.length?button('全部显示','restore-all'):''}</div>
-    ${hidden.length?hidden.map(node=>`<button class="branch-restore" data-action="restore-branch" data-id="${node.id}"><span>${chip(node.kind)}<strong>${esc(node.title)}</strong></span><span>显示 ↗</span></button>`).join(''):'<p class="branch-empty">暂无收起的分支</p>'}`;
+  picker.hidden=!branchMenu||!hidden.length;
+  picker.innerHTML=`<div class="branch-picker-heading"><strong>已收起的分支</strong>${button('全部显示','restore-all')}</div>${hidden.map(node=>`<button class="branch-restore" data-action="restore-branch" data-id="${node.id}"><span>${chip(node.kind)}<strong>${esc(node.title)}</strong></span><span>显示 ↗</span></button>`).join('')}`;
 }
 function inlineEditorMarkup(node){
   return `<form class="inline-editor" data-editor="${node.id}" novalidate><label><span>${node.kind==='root'?'最初想探索的内容':'卡片内容'}</span><textarea name="title" rows="3" maxlength="${node.kind==='root'?2000:90}" required aria-describedby="card-edit-error">${esc(editing.title)}</textarea></label>${node.kind!=='root'?`<label><span>补充描述</span><textarea name="description" rows="2" maxlength="1600">${esc(editing.description)}</textarea></label>`:''}${node.kind==='scene'?`<label><span>场景类别</span><select name="sceneCategory">${Object.entries(SCENE_CATEGORIES).map(([id,category])=>`<option value="${id}" ${editing.sceneCategory===id?'selected':''}>${category.label}</option>`).join('')}</select></label>`:''}<label><span>与上层的关联</span><textarea name="rationale" rows="2" maxlength="1600">${esc(editing.rationale)}</textarea></label><p id="card-edit-error" class="inline-edit-error" role="alert" hidden></p><div class="inline-edit-actions">${button('取消','cancel-edit')}<button type="submit" class="button primary">保存</button></div></form>`;
@@ -460,7 +459,6 @@ function cancelCanvasDrag(){
 }
 document.addEventListener('pointercancel',()=>{if(cordDrag){cordDrag.pull.classList.remove('is-dragging');cordDrag.pull.style.removeProperty('--cord-offset');cordDrag=null;}cancelCanvasDrag();});
 document.addEventListener('click',event=>{
-  if(branchMenu&&!event.target.closest('#branch-picker,[data-action="branch-menu"]')){branchMenu=false;drawBranchControls();}
   const action=event.target.closest('[data-action]');if(action){event.stopPropagation();if(action.dataset.action==='shelf'&&suppressCordClick){suppressCordClick=false;return;}dispatch(action.dataset.action,action);return;}
   const edge=event.target.closest('[data-edge]');if(edge){const e=p.edges.find(v=>v.id===edge.dataset.edge);openModal('edge',e);}
 });
@@ -504,7 +502,7 @@ function dispatch(action,el){
     case'favorite':{let result;commit(()=>result=favoriteNode(p,id));drawGraph();toast(result?'已收藏':'已取消收藏','success',result?'⭐':'');break;}
     case'edit':beginInlineEdit(id);break;
     case'cancel-edit':{const id=editing?.id;editing=null;drawGraph();$(`[data-node="${id}"]`)?.focus({preventScroll:true});break;}
-    case'hide-selected':if(selected&&current().kind!=='root'){branchMenu=false;commit(()=>current().hidden=true);selectOnly(rootOf(p).id);focusId=null;showHidden=false;menu=null;drawGraph();}break;
+    case'hide-selected':if(selected&&current().kind!=='root'){commit(()=>current().hidden=true);selectOnly(rootOf(p).id);focusId=null;showHidden=false;menu=null;drawGraph();}break;
     case'branch-menu':branchMenu=!branchMenu;drawBranchControls();break;
     case'restore-branch':commit(()=>{for(const node of ancestorsOf(p,id))node.hidden=false;});focusId=null;selectOnly(id);branchMenu=false;drawGraph();revealCards(visibleNodes(p));break;
     case'restore-all':commit(()=>p.nodes.forEach(node=>node.hidden=false));focusId=null;branchMenu=false;drawGraph();revealCards(visibleNodes(p));break;
@@ -689,5 +687,3 @@ window.addEventListener('resize',()=>{if(screen==='workspace'){drawNodePanel();i
 render();refreshModel();
 if(location.hash.startsWith('#project=')){try{const binary=atob(location.hash.slice(9));const value=JSON.parse(new TextDecoder().decode(Uint8Array.from(binary,c=>c.charCodeAt(0)))),project=validateProject(value);project.id=uid();project.title+=' · 副本';projects.unshift(project);openProject(project);persist();window.history.replaceState(null,'',location.pathname);}catch{toast('分享链接无法打开，可以让对方导出项目文件。','error');}}
 if(new URLSearchParams(location.search).has('demo'))openDemo();
-
-document.addEventListener('keydown',event=>{if(event.key==='Escape'&&branchMenu){branchMenu=false;drawBranchControls();$('[data-action="branch-menu"]')?.focus({preventScroll:true});}});
