@@ -6,7 +6,6 @@ import {wheelIntent,gestureFactor,zoomView} from './canvas-gestures.js';
 import {GenerationHistory} from './generation-history.js';
 import {SCENE_CATEGORIES,inferSceneCategory,sceneRelations,edgeSceneCategories} from './scene-categories.js';
 import {editCard,selectionRelations} from './card-editing.js';
-import {mountProjectHome} from './home-projects.js';
 
 const $=(selector,scope=document)=>scope.querySelector(selector);
 const $$=(selector,scope=document)=>[...scope.querySelectorAll(selector)];
@@ -29,7 +28,6 @@ let projects=[];try{projects=JSON.parse(localStorage.getItem(STORAGE)||'[]').fla
 let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,assigning=null,connecting=null,pending=null,search='',query='',editing=null,branchMenu=false,modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},savedSelection=new Set(),savedMultiSelect=false,drag=null,spaceHeld=false;
 let lastFocus=null,saveTimer=null,queuedAfterModel=null,fanPinned=null,cordDrag=null,suppressCordClick=false;
 let cardMotion=null,layoutAnimation=null,canvasSelection=new Set();
-let homeProjects=null;
 const app=$('#app'),overlays=$('#overlays');
 
 function persist(){
@@ -66,10 +64,9 @@ function header(){return `<header class="app-header">
   </div></header>`;}
 function render(){if(screen==='home')renderHome();else renderWorkspace();updateModelBadge();}
 function renderHome(){
-  screen='home';homeProjects?.destroy();homeProjects=mountProjectHome(app,projects);
+  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project">${emoji('🌱')}<span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects">${emoji('📂')}<span>打开项目</span></button></div></main>`;
 }
 function renderWorkspace(){
-  homeProjects?.destroy();homeProjects=null;
   app.innerHTML=header()+`<main class="workspace ${showShelf?'with-shelf':''} ${showOutline?'with-outline':''}">
     <button class="collection-backdrop ${showShelf?'is-open':''}" data-action="shelf" aria-label="收起收藏栏" tabindex="-1" ${showShelf?'':'inert'}></button>
     <section class="shelf ${showShelf?'is-open':''}" id="shelf" aria-label="收藏的方向" ${showShelf?'':'inert'}></section>
@@ -472,10 +469,7 @@ function dispatch(action,el){
   try{switch(action){
     case'home':pending?.controller.abort();pending=null;persist();screen='home';modal=null;overlays.innerHTML='';render();break;
     case'new-project':openModal('new-project');break;
-    case'open-projects':homeProjects?.toggle();break;
-    case'close-projects':homeProjects?.close();break;
-    case'project-page-prev':homeProjects?.turnPage(-1);break;
-    case'project-page-next':homeProjects?.turnPage(1);break;
+    case'open-projects':openModal('open-projects');break;
     case'open-project':closeModal();openProject(projects.find(v=>v.id===id));break;
     case'delete-project':openModal('delete-project',id);break;
     case'import':$('#file-import').click();break;
@@ -583,7 +577,12 @@ function openModal(kind,data=null){
   menu=null;fanPinned=null;drawNodePanel();
   if(kind==='saved-detail'){openDirection(data);return;}
   lastFocus=document.activeElement;modal={kind,data};let body='',footer='',title='',wide=false;
-  const headingEmoji={'new-project':'🌱',share:'💌'}[kind]||'';
+  const headingEmoji={'new-project':'🌱','open-projects':'📂',share:'💌'}[kind]||'';
+  if(kind==='open-projects'){
+    title='打开项目';wide=true;
+    body=`<div class="project-picker">${projects.length?`<div class="project-picker-grid">${projects.map(project=>`<article class="project-card"><button class="project-open" data-action="open-project" data-id="${project.id}"><span class="project-card-icon">${emoji('🌱')}</span><h3>${esc(project.title)}</h3><p>${esc(project.description)}</p><footer><span>${project.nodes.length} 张卡片</span><time>${new Date(project.updatedAt).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</time></footer></button><button class="project-delete" data-action="delete-project" data-id="${project.id}" aria-label="删除项目 ${esc(project.title)}">×</button></article>`).join('')}</div>`:'<p class="picker-empty">暂无项目</p>'}</div>`;
+    footer=button('从文件打开','import',{icon:'file'})+button('关闭','close-modal');
+  }
   if(kind==='new-project'){
     title='新建探索';body=`<form id="new-project-form"><label class="field"><span>选题内容</span><textarea id="project-description" rows="5" maxlength="2000" required ></textarea></label><label class="field"><span>项目名称 <em>选填</em></span><input id="project-name" maxlength="50" ></label><div class="form-actions">${button('取消','close-modal')}<button type="submit" class="button primary">创建 ${icon('arrow')}</button></div></form>`;
   }
@@ -632,7 +631,6 @@ function bindModal(kind,data){
   $('#confirm-delete')?.addEventListener('click',()=>{if(kind==='delete-node'){commit(()=>removeBranch(p,data));if(!p.nodes.some(n=>n.id===focusId))focusId=null;selectOnly(rootOf(p).id);closeModal();renderWorkspace();toast('已删除分支。');}else{projects=projects.filter(v=>v.id!==data);p=null;persist();closeModal();renderHome();}});
 }
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&!modal&&screen==='home'&&homeProjects?.isOpen){e.preventDefault();homeProjects.close();return;}
   if(modal&&e.key==='Tab'){const items=$$('button:not([disabled]),input,textarea,select,[tabindex="0"]',$('.modal')),first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}return;}
   if(e.key==='Escape'&&editing&&!modal){e.preventDefault();dispatch('cancel-edit');return;}
   if(e.key==='Escape'){if(modal){closeModal();queuedAfterModel=null;}else if(showShelf){toggleShelf();}else if(branchMenu){branchMenu=false;drawBranchControls();}else{menu=null;fanPinned=null;connecting=null;assigning=null;if(drag){cancelCanvasDrag();return;}selectOnly(null);if(focusId){focusId=null;renderWorkspace();}else if(screen==='workspace')drawGraph();}return;}
