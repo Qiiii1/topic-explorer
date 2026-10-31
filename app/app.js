@@ -20,12 +20,12 @@ const button=(label,action,options={})=>`<button type="button" class="button ${o
 const iconButton=(label,action,name,options={})=>`<button type="button" class="icon-button ${options.class||''}" data-action="${action}" aria-label="${esc(label)}" title="${esc(label)}" ${options.id?`data-id="${esc(options.id)}"`:''} ${options.extra||''} ${options.disabled?'disabled':''}>${icon(name)||esc(options.symbol||label)}</button>`;
 const chip=kind=>`<span class="type-chip type-${kind}"><span></span>${KINDS[kind].label}</span>`;
 const actionGlyph=name=>`<svg class="action-glyph" viewBox="0 0 24 24" aria-hidden="true">${name==='star'?'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/>':'<path d="M12 5v14M5 12h14"/>'}</svg>`;
-const glassAction=(label,action,options={})=>`<lg-button class="glass-action" tone="light" radius="16" refraction="14" backdrop="#surface" data-action="${action}" ${options.id?`data-id="${esc(options.id)}"`:''} ${options.disabled?'disabled':''} ${options.extra||''}>${options.icon?icon(options.icon):''}${label}</lg-button>`;
+const glassAction=(label,action,options={})=>`<lg-button class="glass-action ${options.iconOnly?'glass-icon-action':''}" tone="light" radius="16" refraction="14" backdrop="#surface" data-action="${action}" ${options.iconOnly?`aria-label="${esc(label)}" title="${esc(options.title||label)}"`:''} ${options.id?`data-id="${esc(options.id)}"`:''} ${options.disabled?'disabled':''} ${options.extra||''}>${options.icon?icon(options.icon):''}${options.iconOnly?'':label}</lg-button>`;
 const generations=new GenerationHistory();
 const browserModel=document.querySelector('meta[name="topic-runtime"][content="static"]')?createBrowserModelClient():null;
 const STORAGE='topic-explorer-projects-v1';
 let projects=[];try{projects=JSON.parse(localStorage.getItem(STORAGE)||'[]').flatMap(value=>{try{return [validateProject(value)];}catch{return [];}});}catch{projects=[];}
-let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,tool='select',assigning=null,connecting=null,pending=null,search='',query='',editing=null,branchMenu=false,modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},savedSelection=new Set(),drag=null,spaceHeld=false;
+let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,assigning=null,connecting=null,pending=null,search='',query='',editing=null,branchMenu=false,modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},savedSelection=new Set(),drag=null,spaceHeld=false;
 let lastFocus=null,saveTimer=null,queuedAfterModel=null,fanPinned=null,cordDrag=null,suppressCordClick=false;
 let cardMotion=null,layoutAnimation=null,canvasSelection=new Set();
 const app=$('#app'),overlays=$('#overlays');
@@ -35,7 +35,6 @@ function persist(){
   try{localStorage.setItem(STORAGE,JSON.stringify(projects));}catch{toast('浏览器存储空间不足，请导出项目文件。','error');}
 }
 function commit(change){finishCardMotion();change();persist();}
-function setCanvasTool(value){tool=value;$('#surface')?.classList.toggle('hand-tool',tool==='hand');if($('.tool-switch'))$('.tool-switch').value=value;}
 function toast(message,type='success',symbol=''){
   const el=document.createElement('div');el.className=`toast toast-${type}`;
   if(symbol){const decoration=document.createElement('span');decoration.className='ui-emoji';decoration.setAttribute('aria-hidden','true');decoration.textContent=symbol;el.appendChild(decoration);}
@@ -71,19 +70,18 @@ function renderWorkspace(){
   app.innerHTML=header()+`<main class="workspace ${showShelf?'with-shelf':''} ${showOutline?'with-outline':''}">
     <button class="collection-backdrop ${showShelf?'is-open':''}" data-action="shelf" aria-label="收起收藏栏" tabindex="-1" ${showShelf?'':'inert'}></button>
     <section class="shelf ${showShelf?'is-open':''}" id="shelf" aria-label="收藏的方向" ${showShelf?'':'inert'}></section>
-    <section id="surface" class="canvas-surface ${tool==='hand'?'hand-tool':''}" aria-label="选题探索画布，拖动空白处框选，按住空格平移" tabindex="0"><div id="world" class="canvas-world"><svg id="edges" class="edges" width="1" height="1"></svg><div id="nodes"></div><svg id="link-preview" class="link-preview" width="1" height="1"></svg><div id="selection-bounds" class="selection-bounds" hidden><i></i><i></i><i></i><i></i></div></div><div id="marquee" class="marquee" hidden></div><div class="canvas-empty" id="canvas-empty"></div></section>
+    <section id="surface" class="canvas-surface" aria-label="选题探索画布，拖动空白处框选，按住空格平移" tabindex="0"><div id="world" class="canvas-world"><svg id="edges" class="edges" width="1" height="1"></svg><div id="nodes"></div><svg id="link-preview" class="link-preview" width="1" height="1"></svg><div id="selection-bounds" class="selection-bounds" hidden><i></i><i></i><i></i><i></i></div></div><div id="marquee" class="marquee" hidden></div><div class="canvas-empty" id="canvas-empty"></div></section>
     <div id="canvas-selection-bar" class="canvas-selection-bar glass" aria-live="polite" hidden></div>
     <div class="canvas-heading"><span class="eyebrow">${emoji('🧭')} 正在探索</span><span id="node-count"></span></div>
     <aside id="outline" class="outline glass ${showOutline?'is-open':''}" aria-label="探索路径"></aside>
     <aside id="node-panel" class="node-panel glass" aria-label="当前卡片操作" hidden></aside>
     <div id="selection-notice" class="selection-notice glass" hidden></div>
-    <section class="manual-dock" aria-label="画布工具栏"><div id="branch-picker" class="branch-picker" hidden></div><lg-panel class="dock-panel" tone="light" radius="26" refraction="20" bezel="0.32" blur="1.5" chroma="0.12" backdrop="#surface"><div class="dock-toolbar"><div class="canvas-tools" role="group" aria-label="画布操作"><lg-segmented class="tool-switch" value="${tool}" label="画布工具" refraction="6"><button value="select">选择</button><button value="hand">平移</button></lg-segmented><span class="tool-separator"></span>${iconButton('撤回生成，Command Z','undo','undo',{disabled:!generations.canUndo(p)})}${iconButton('恢复生成，Command Shift Z','redo','undo',{class:'redo-icon',disabled:!generations.canRedo()})}<span class="tool-separator"></span><button class="zoom-button" data-action="zoom-out" aria-label="缩小">−</button><button id="zoom-value" class="zoom-value" data-action="fit" title="适应画面">100%</button><button class="zoom-button" data-action="zoom-in" aria-label="放大">+</button></div><div class="dock-actions"><div class="exploration-tools" role="group" aria-label="探索管理">${glassAction('一键整理','arrange',{icon:'layers',extra:'title="按照主线整理画布"'})}${glassAction(showOutline?'收起路径':'探索路径','outline',{extra:`aria-pressed="${showOutline}" aria-controls="outline"`})}</div><div class="branch-tools" role="group" aria-label="分支显示">${glassAction('收起分支','hide-selected',{extra:'aria-label="收起选中卡片及其分支"'})}${glassAction('显示分支','branch-menu',{extra:'aria-expanded="false" aria-controls="branch-picker"'})}${glassAction(focusId?'全部分支':'只看分支','focus-selected',{extra:`aria-pressed="${!!focusId}"`})}</div></div><div class="generation-setting"><span>生成</span><lg-segmented id="generation-count" value="${p.generationCount}" label="每次生成数量" refraction="5">${[3,6,10].map(n=>`<button value="${n}">${n}</button>`).join('')}</lg-segmented><span>张</span></div></div></lg-panel></section>
-    <div class="canvas-footer"><span>双指滑动平移 · 捏合缩放 · Shift 加选 · ⌘A 全选</span><span id="mode-note">${model.mode==='live'?'生成结果待验证':'连接模型后开始生成'}</span></div>
+    <section class="manual-dock" aria-label="画布工具栏"><div id="branch-picker" class="branch-picker" hidden></div><lg-panel class="dock-panel" tone="light" radius="26" refraction="20" bezel="0.32" blur="3" chroma="0.12" backdrop="#surface"><div class="dock-toolbar"><div class="canvas-tools" role="group" aria-label="画布操作">${iconButton('撤回生成，Command Z','undo','undo',{disabled:!generations.canUndo(p)})}${iconButton('恢复生成，Command Shift Z','redo','undo',{class:'redo-icon',disabled:!generations.canRedo()})}<span class="tool-separator"></span><button class="zoom-button" data-action="zoom-out" aria-label="缩小">−</button><button id="zoom-value" class="zoom-value" data-action="fit" title="适应画面">100%</button><button class="zoom-button" data-action="zoom-in" aria-label="放大">+</button></div><div class="dock-actions"><div class="exploration-tools" role="group" aria-label="探索管理">${glassAction('一键整理','arrange',{icon:'layers',iconOnly:true,title:'按主线整理画布'})}${glassAction(showOutline?'收起探索路径':'探索路径','outline',{icon:'branch',iconOnly:true,extra:`aria-pressed="${showOutline}" aria-controls="outline"`})}</div><div class="branch-tools" role="group" aria-label="分支显示">${glassAction('收起分支','hide-selected',{extra:'aria-label="收起选中卡片及其分支"'})}${glassAction('显示分支','branch-menu',{extra:'aria-expanded="false" aria-controls="branch-picker"'})}${glassAction(focusId?'全部分支':'只看分支','focus-selected',{extra:`aria-pressed="${!!focusId}"`})}</div></div><div class="generation-setting"><span>生成</span><lg-segmented id="generation-count" value="${p.generationCount}" label="每次生成数量" refraction="5">${[3,6,10].map(n=>`<button value="${n}">${n}</button>`).join('')}</lg-segmented><span>张</span></div></div></lg-panel></section>
+    <div class="canvas-footer"><span>拖动框选 · 空格平移 · 捏合或 ⌘ 滚轮缩放</span><span id="mode-note">${model.mode==='live'?'生成结果待验证':'连接模型后开始生成'}</span></div>
     <div id="generation-progress" class="generation-progress glass" hidden></div>
   </main>`;
   $$('lg-button[aria-pressed]').forEach(host=>$('button',host)?.setAttribute('aria-pressed',host.getAttribute('aria-pressed')));
   $('#node-search').addEventListener('input',e=>{search=e.target.value;drawGraph();});
-  $('.tool-switch').addEventListener('change',event=>setCanvasTool(event.detail.value));
   $('#generation-count').addEventListener('change',event=>{
     if(pending){event.currentTarget.value=String(p.generationCount);toast('生成完成后即可调整数量。');return;}
     p.generationCount=Number(event.detail.value);persist();drawGraph();
@@ -384,13 +382,13 @@ function bindCanvas(){
     const handle=event.target.closest('[data-handle]'),nodeEl=event.target.closest('[data-node]');
     if(pending&&(handle||nodeEl)&&!event.target.closest('button[data-action]'))return;
     if(handle){finishCardMotion();event.preventDefault();event.stopPropagation();connecting=handle.dataset.handle;assigning=null;fanPinned=null;menu=null;drag={type:'link',id:connecting,startX:event.clientX,startY:event.clientY,moved:false};surface.setPointerCapture(event.pointerId);drawGraph();return;}
-    if(event.target.closest('button,[data-edge]')&&!spaceHeld&&tool!=='hand')return;
+    if(event.target.closest('button,[data-edge]')&&!spaceHeld)return;
     finishCardMotion();
     stopLayoutAnimation();
-    if(nodeEl&&!spaceHeld&&tool!=='hand'&&event.button!==1){
+    if(nodeEl&&!spaceHeld&&event.button!==1){
       const n=p.nodes.find(v=>v.id===nodeEl.dataset.node),selection=event.shiftKey?new Set([...canvasSelection,n.id]):canvasSelection.has(n.id)?new Set(canvasSelection):new Set([n.id]);
       drag={type:connecting||assigning?'pick':'node',id:n.id,startX:event.clientX,startY:event.clientY,origins:branchPositions(p,[...selection]),selection,oldSelection:new Set(canvasSelection),additive:event.shiftKey,moved:false,before:clone(p)};
-    }else if(spaceHeld||tool==='hand'||event.button===1){drag={type:'pan',startX:event.clientX,startY:event.clientY,x:view.x,y:view.y,moved:false};surface.classList.add('is-panning');}
+    }else if(spaceHeld||event.button===1){drag={type:'pan',startX:event.clientX,startY:event.clientY,x:view.x,y:view.y,moved:false};surface.classList.add('is-panning');}
     else{
       const rect=surface.getBoundingClientRect();menu=null;fanPinned=null;branchMenu=false;drawBranchControls();drawNodePanel();
       drag={type:'marquee',startX:event.clientX,startY:event.clientY,rect,base:event.shiftKey?new Set(canvasSelection):new Set(),oldSelection:new Set(canvasSelection),moved:false};surface.classList.add('is-marquee');
@@ -479,8 +477,6 @@ function dispatch(action,el){
     case'project-settings':openModal('project-settings');break;
     case'shelf':toggleShelf();break;
     case'outline':showOutline=!showOutline;renderWorkspace();break;
-    case'tool-select':setCanvasTool('select');break;
-    case'tool-hand':setCanvasTool('hand');break;
     case'fit':fitView(null,true);break;
     case'arrange':{const before=clone(p.nodes);commit(()=>arrangeByMainline(p));menu=null;fanPinned=null;connecting=null;assigning=null;drawGraph();animateLayout(before);revealCards(visibleNodes(p,{focusId,showHidden}));toast('已按主线整理。');break;}
     case'zoom-in':zoomBy(1.16);break;
@@ -608,7 +604,7 @@ function openModal(kind,data=null){
     title='分享这次探索';body=`<p class="modal-intro">把当前探索保存为链接快照。接收者打开后，会获得一份可独立编辑的副本。</p><div class="original-idea"><strong>${esc(p.title)}</strong><p>${p.nodes.length} 个想法 · ${p.favorites.length} 个已收藏方向</p></div><p class="field-hint">${browserModel?'接收者可直接打开链接。链接包含当前项目副本，请仅分享你愿意公开的内容；每位访客单独配置自己的 AI。':'原型运行在本地。接收者需要能够访问同一个网页服务；跨设备分享也可以先导出项目文件。'}</p>`;footer=button('导出项目文件','download-json')+button('复制链接','copy-share',{class:'primary'});
   }
   if(kind==='help'){
-    title='让想法一步步长出来';body=`<div class="help-steps"><div><span>1</span><section><h3>从一个粗想法开始</h3><p>输入兴趣、观察或作业要求，建立选题中心。</p></section></div><div><span>2</span><section><h3>选择卡片，换个维度看</h3><p>从场景、痛点、人群继续探索。卡片加号会细化相同类型。</p></section></div><div><span>3</span><section><h3>连接同类，寻找交集</h3><p>从右侧连接点拖到另一张同类卡片，也可以在操作面板点击“关联同类卡片”。</p></section></div><div><span>4</span><section><h3>留下方向，也留下来路</h3><p>点击星标，收藏节点、全部上游路径和细化理由。</p></section></div></div><div class="detail-footnote">双指滑动平移，捏合缩放。⌘Z 撤回生成，⌘⇧Z 恢复生成，⌘K 搜索。左上角编辑卡片，底部工具栏管理分支。</div>`;footer=button('知道了','close-modal',{class:'primary'});
+    title='让想法一步步长出来';body=`<div class="help-steps"><div><span>1</span><section><h3>从一个粗想法开始</h3><p>输入兴趣、观察或作业要求，建立选题中心。</p></section></div><div><span>2</span><section><h3>选择卡片，换个维度看</h3><p>从场景、痛点、人群继续探索。卡片加号会细化相同类型。</p></section></div><div><span>3</span><section><h3>连接同类，寻找交集</h3><p>从右侧连接点拖到另一张同类卡片，也可以在操作面板点击“关联同类卡片”。</p></section></div><div><span>4</span><section><h3>留下方向，也留下来路</h3><p>点击星标，收藏节点、全部上游路径和细化理由。</p></section></div></div><div class="detail-footnote">默认拖动框选，空格或中键平移；双指滑动平移，捏合或 Command＋滚轮缩放。⌘Z 撤回生成，⌘⇧Z 恢复生成，⌘K 搜索。左上角编辑卡片，底部工具栏管理分支。</div>`;footer=button('知道了','close-modal',{class:'primary'});
   }
   if(kind==='delete-node'||kind==='delete-project'){
     title=kind==='delete-node'?'删除这条分支？':'删除这个项目？';body=`<p class="modal-intro">${kind==='delete-node'?'会一并删除只属于它的子节点。已经收藏的路径快照会保留。':'会从这台设备的最近探索中删除。建议先导出项目文件。'}</p>`;footer=button('取消','close-modal')+`<button class="button destructive" id="confirm-delete">确认删除</button>`;
@@ -638,7 +634,6 @@ document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'&&screen==='workspace'){e.preventDefault();$('#node-search').focus();return;}
   if(isTextEditing||modal)return;
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='a'&&screen==='workspace'){e.preventDefault();setCanvasSelection(graphNodes().map(n=>n.id));menu=null;fanPinned=null;drawGraph();return;}
-  if(screen==='workspace'&&!e.metaKey&&!e.ctrlKey&&['v','h'].includes(e.key.toLowerCase())){e.preventDefault();dispatch(e.key.toLowerCase()==='h'?'tool-hand':'tool-select');return;}
   if(screen==='workspace'&&canvasSelection.size&&!pending&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
     e.preventDefault();finishCardMotion();stopLayoutAnimation();const before=clone(p.nodes),amount=e.shiftKey?80:20,origins=branchPositions(p,[...canvasSelection]);
     commit(()=>{moveBranch(p,origins,e.key==='ArrowLeft'?-amount:e.key==='ArrowRight'?amount:0,e.key==='ArrowUp'?-amount:e.key==='ArrowDown'?amount:0);spreadCrowdedCards(p.nodes,new Set(origins.keys()));});drawGraph();animateLayout(before);return;
