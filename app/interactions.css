@@ -231,7 +231,11 @@
 
 /* Two quiet entry points, with saved work disclosed only when opening a project. */
 .home-launcher{min-height:100dvh;display:grid;place-items:center;padding:28px;background:#f5f5f7}
-.launch-actions{display:flex;gap:18px;align-items:center;transform:translateY(-20px)}
+.home-launch-content{display:flex;flex-direction:column;align-items:center;gap:44px;transform:translateY(-20px)}
+.home-brand-logo{display:block;width:196px;height:auto;max-width:55vw;object-fit:contain}
+.launch-actions{display:flex;gap:18px;align-items:center}
+.brand-mark{width:44px;height:32px;flex-shrink:0;border-radius:0;background:transparent}
+.brand-logo{display:block;width:100%;height:100%;object-fit:contain}
 .launch-button{display:flex;align-items:center;justify-content:center;gap:12px;min-width:206px;min-height:76px;padding:20px 30px;border-radius:18px;font-size:16px;font-weight:550;letter-spacing:.1px;border:1px solid #dddfe7;background:#fff;box-shadow:0 3px 12px #23334f05;transition:transform 160ms,box-shadow 160ms,background 160ms}
 .launch-button .icon,.launch-button .action-glyph{width:23px;height:23px}
 .launch-new{background:#007aff;color:#fff;border-color:#007aff;box-shadow:0 5px 18px #007aff1b}
@@ -272,7 +276,7 @@
 .canvas-surface.is-marquee .dimension-deck:before,.canvas-world:has(.selection-bounds:not([hidden])) .dimension-deck:before{pointer-events:none!important}
 .export-scope{display:flex;gap:4px;padding:4px;margin-bottom:18px;background:#eceef4;border-radius:11px}
 .export-scope .button{flex:1;font-size:12px;min-height:38px}.export-scope .button.selected{background:#fff;color:#007aff;box-shadow:0 2px 7px #23334f0b}
-@media(max-width:620px){.launch-actions{flex-direction:column;gap:14px}.launch-button{min-width:230px;min-height:70px}.project-picker-grid{grid-template-columns:1fr}.project-picker .project-open{min-height:160px}.canvas-selection-bar{bottom:155px;max-width:calc(100% - 28px);gap:3px;padding:6px 8px 6px 12px}.canvas-selection-bar .button{font-size:10px;padding:6px 8px}.canvas-selection-bar>span{font-size:10px;margin-right:4px}.export-scope .button{font-size:11px}}
+@media(max-width:620px){.home-brand-logo{width:156px}.home-launch-content{gap:36px}.brand-mark{width:34px;height:26px}.launch-actions{flex-direction:column;gap:14px}.launch-button{min-width:230px;min-height:70px}.project-picker-grid{grid-template-columns:1fr}.project-picker .project-open{min-height:160px}.canvas-selection-bar{bottom:155px;max-width:calc(100% - 28px);gap:3px;padding:6px 8px 6px 12px}.canvas-selection-bar .button{font-size:10px;padding:6px 8px}.canvas-selection-bar>span{font-size:10px;margin-right:4px}.export-scope .button{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.launch-button{transition:none}}
 .canvas-world:has(.selection-bounds:not([hidden])) .connection-handle{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
 .idea-card .card-star.is-saved{color:#6d4600}

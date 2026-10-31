@@ -55,7 +55,7 @@ async function api(path,body,signal){
 async function refreshModel(){try{model=await api('/status');if(model.mode==='demo')model.mode='unconfigured';updateModelBadge();}catch{model={mode:'unconfigured',model:''};}}
 function updateModelBadge(){const el=$('#model-status');if(el){el.innerHTML=`<span class="status-dot ${model.mode==='live'?'connected':''}"></span><span>${model.mode==='live'?esc(model.model):'连接 AI'}</span>`;el.title='模型设置';}}
 function header(){return `<header class="app-header">
-  <div class="header-start"><button class="brand" data-action="home" aria-label="有点想法，返回首页"><span class="brand-mark">${icon('branch')}</span><span>有点想法<span class="brand-dot">.</span></span></button>
+  <div class="header-start"><button class="brand" data-action="home" aria-label="有点想法，返回首页"><span class="brand-mark" aria-hidden="true"><img class="brand-logo" src="./assets/brand/logo.svg" alt="" width="44" height="30"></span><span>有点想法<span class="brand-dot">.</span></span></button>
   ${screen==='workspace'?`<span class="header-divider"></span><button class="project-title" data-action="project-settings">${esc(p.title)}<span class="small-chevron">⌄</span></button><span class="autosaved"><span></span>已保存</span>`:''}</div>
   ${screen==='workspace'?`<button class="shelf-pull ${showShelf?'is-open':''}" data-action="shelf" aria-controls="shelf" aria-expanded="${showShelf}" aria-label="${showShelf?'拉起绳子，收起收藏':'拉下绳子，查看收藏'}，${p.favorites.length} 个方向" title="${showShelf?'拉起，收起收藏':'拉一下，查看收藏'}"><img src="./assets/icons/figma-shelf-pull.svg" alt="" aria-hidden="true"><span class="pull-count" ${p.favorites.length?'':'hidden'}>${p.favorites.length}</span></button>`:''}
   <div class="header-actions">${screen==='workspace'?`<label class="search-field">${icon('search')}<input id="node-search" aria-label="搜索节点" placeholder="搜索想法" value="${esc(search)}"></label>${button('导出','export')}${button('分享','share')}`:''}
@@ -64,7 +64,7 @@ function header(){return `<header class="app-header">
   </div></header>`;}
 function render(){if(screen==='home')renderHome();else renderWorkspace();updateModelBadge();}
 function renderHome(){
-  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project">${emoji('🌱')}<span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects">${emoji('📂')}<span>打开项目</span></button></div></main>`;
+  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="home-launch-content"><img class="home-brand-logo" src="./assets/brand/logo.svg" alt="有点想法" width="196" height="131"><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project">${emoji('🌱')}<span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects">${emoji('📂')}<span>打开项目</span></button></div></div></main>`;
 }
 function renderWorkspace(){
   app.innerHTML=header()+`<main class="workspace ${showShelf?'with-shelf':''} ${showOutline?'with-outline':''}">
