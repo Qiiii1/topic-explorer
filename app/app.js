@@ -19,13 +19,13 @@ function icon(name,extra=''){
 const button=(label,action,options={})=>`<button type="button" class="button ${options.class||''}" data-action="${action}" ${options.id?`data-id="${esc(options.id)}"`:''} ${options.extra||''} ${options.disabled?'disabled':''}>${options.icon?icon(options.icon):''}${label}</button>`;
 const iconButton=(label,action,name,options={})=>`<button type="button" class="icon-button ${options.class||''}" data-action="${action}" aria-label="${esc(label)}" title="${esc(label)}" ${options.id?`data-id="${esc(options.id)}"`:''} ${options.extra||''} ${options.disabled?'disabled':''}>${icon(name)||esc(options.symbol||label)}</button>`;
 const chip=kind=>`<span class="type-chip type-${kind}"><span></span>${KINDS[kind].label}</span>`;
-const actionGlyph=name=>`<svg class="action-glyph" viewBox="0 0 24 24" aria-hidden="true">${name==='star'?'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/>':'<path d="M12 5v14M5 12h14"/>'}</svg>`;
-const glassAction=(label,action,options={})=>`<lg-button class="glass-action ${options.iconOnly?'glass-icon-action':''}" tone="light" radius="16" refraction="14" backdrop="#surface" data-action="${action}" ${options.iconOnly?`aria-label="${esc(label)}" title="${esc(options.title||label)}"`:''} ${options.id?`data-id="${esc(options.id)}"`:''} ${options.disabled?'disabled':''} ${options.extra||''}>${options.icon?icon(options.icon):''}${options.iconOnly?'':label}</lg-button>`;
+const actionGlyph=name=>`<svg class="action-glyph" viewBox="0 0 24 24" aria-hidden="true">${name==='undo'?'<path d="m9 5-5 5 5 5M4 10h10a5 5 0 0 1 0 10h-3"/>':name==='minus'?'<path d="M5 12h14"/>':name==='star'?'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/>':'<path d="M12 5v14M5 12h14"/>'}</svg>`;
+const glassAction=(label,action,options={})=>`<lg-button class="glass-action ${options.class||''} ${options.iconOnly?'glass-icon-action':''}" tone="light" radius="16" refraction="14" backdrop="#surface" data-action="${action}" ${options.iconOnly?`aria-label="${esc(label)}" title="${esc(options.title||label)}"`:''} ${options.id?`data-id="${esc(options.id)}"`:''} ${options.disabled?'disabled':''} ${options.extra||''}>${options.icon?icon(options.icon):options.glyph?actionGlyph(options.glyph):''}${options.iconOnly?'':label}</lg-button>`;
 const generations=new GenerationHistory();
 const browserModel=document.querySelector('meta[name="topic-runtime"][content="static"]')?createBrowserModelClient():null;
 const STORAGE='topic-explorer-projects-v1';
 let projects=[];try{projects=JSON.parse(localStorage.getItem(STORAGE)||'[]').flatMap(value=>{try{return [validateProject(value)];}catch{return [];}});}catch{projects=[];}
-let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,assigning=null,connecting=null,pending=null,search='',query='',editing=null,branchMenu=false,modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},savedSelection=new Set(),drag=null,spaceHeld=false;
+let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,assigning=null,connecting=null,pending=null,search='',query='',editing=null,branchMenu=false,modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},savedSelection=new Set(),savedMultiSelect=false,drag=null,spaceHeld=false;
 let lastFocus=null,saveTimer=null,queuedAfterModel=null,fanPinned=null,cordDrag=null,suppressCordClick=false;
 let cardMotion=null,layoutAnimation=null,canvasSelection=new Set();
 const app=$('#app'),overlays=$('#overlays');
@@ -76,7 +76,7 @@ function renderWorkspace(){
     <aside id="outline" class="outline glass ${showOutline?'is-open':''}" aria-label="探索路径"></aside>
     <aside id="node-panel" class="node-panel glass" aria-label="当前卡片操作" hidden></aside>
     <div id="selection-notice" class="selection-notice glass" hidden></div>
-    <section class="manual-dock" aria-label="画布工具栏"><div id="branch-picker" class="branch-picker" hidden></div><lg-panel class="dock-panel" tone="light" radius="26" refraction="20" bezel="0.32" blur="3" chroma="0.12" backdrop="#surface"><div class="dock-toolbar"><div class="canvas-tools" role="group" aria-label="画布操作">${iconButton('撤回生成，Command Z','undo','undo',{disabled:!generations.canUndo(p)})}${iconButton('恢复生成，Command Shift Z','redo','undo',{class:'redo-icon',disabled:!generations.canRedo()})}<span class="tool-separator"></span><button class="zoom-button" data-action="zoom-out" aria-label="缩小">−</button><button id="zoom-value" class="zoom-value" data-action="fit" title="适应画面">100%</button><button class="zoom-button" data-action="zoom-in" aria-label="放大">+</button></div><div class="dock-actions"><div class="exploration-tools" role="group" aria-label="探索管理">${glassAction('一键整理','arrange',{icon:'layers',iconOnly:true,title:'按主线整理画布'})}${glassAction(showOutline?'收起探索路径':'探索路径','outline',{icon:'branch',iconOnly:true,extra:`aria-pressed="${showOutline}" aria-controls="outline"`})}</div><div class="branch-tools" role="group" aria-label="分支显示">${glassAction('收起分支','hide-selected',{extra:'aria-label="收起选中卡片及其分支"'})}${glassAction('显示分支','branch-menu',{extra:'aria-expanded="false" aria-controls="branch-picker"'})}${glassAction(focusId?'全部分支':'只看分支','focus-selected',{extra:`aria-pressed="${!!focusId}"`})}</div></div><div class="generation-setting"><span>生成</span><lg-segmented id="generation-count" value="${p.generationCount}" label="每次生成数量" refraction="5">${[3,6,10].map(n=>`<button value="${n}">${n}</button>`).join('')}</lg-segmented><span>张</span></div></div></lg-panel></section>
+    <section class="manual-dock" aria-label="画布工具栏"><div id="branch-picker" class="branch-picker" hidden></div><lg-panel class="dock-panel" tone="light" radius="26" refraction="20" bezel="0.32" blur="3" chroma="0.12" backdrop="#surface"><div class="dock-toolbar"><div class="canvas-tools" role="group" aria-label="画布操作">${glassAction('撤回生成，Command Z','undo',{glyph:'undo',iconOnly:true,disabled:!generations.canUndo(p)})}${glassAction('恢复生成，Command Shift Z','redo',{glyph:'undo',iconOnly:true,class:'redo-icon',disabled:!generations.canRedo()})}<span class="tool-separator"></span>${glassAction('缩小','zoom-out',{glyph:'minus',iconOnly:true})}${glassAction(Math.round(view.scale*100)+'%','fit',{class:'zoom-value',extra:'id="zoom-value" aria-label="适应画面" title="适应画面"'})}${glassAction('放大','zoom-in',{glyph:'plus',iconOnly:true})}</div><div class="dock-actions"><div class="exploration-tools" role="group" aria-label="探索管理">${glassAction('一键整理','arrange',{icon:'layers',iconOnly:true,title:'按主线整理画布'})}${glassAction(showOutline?'收起探索路径':'探索路径','outline',{icon:'branch',iconOnly:true,extra:`aria-pressed="${showOutline}" aria-controls="outline"`})}</div><div class="branch-tools" role="group" aria-label="分支显示">${glassAction('收起分支','hide-selected',{extra:'aria-label="收起选中卡片及其分支"'})}${glassAction('显示分支','branch-menu',{extra:'aria-expanded="false" aria-controls="branch-picker"'})}${glassAction(focusId?'全部分支':'只看分支','focus-selected',{extra:`aria-pressed="${!!focusId}"`})}</div></div><div class="generation-setting"><span>生成</span><lg-segmented id="generation-count" value="${p.generationCount}" label="每次生成数量" refraction="5">${[3,6,10].map(n=>`<button value="${n}">${n}</button>`).join('')}</lg-segmented><span>张</span></div></div></lg-panel></section>
     <div class="canvas-footer"><span>拖动框选 · 空格平移 · 捏合或 ⌘ 滚轮缩放</span><span id="mode-note">${model.mode==='live'?'生成结果待验证':'连接模型后开始生成'}</span></div>
     <div id="generation-progress" class="generation-progress glass" hidden></div>
   </main>`;
@@ -128,7 +128,7 @@ function drawGraph(){
   if(p.nodes.length===1)$('#canvas-empty').innerHTML=`<span>${emoji('💡')} 悬停选题中心，在上方选择细化维度。</span><p>场景、痛点、人群，可以从任何一处开始。</p>`;
   if(search){const matches=nodes.filter(n=>`${n.title} ${n.description}`.toLowerCase().includes(search.toLowerCase()));$('#node-count').textContent=matches.length?`找到 ${matches.length} 个相关想法`:'没有找到相关想法';}
   const undo=$('[data-action="undo"]'),redo=$('[data-action="redo"]');
-  if(undo)undo.disabled=!generations.canUndo(p);if(redo)redo.disabled=!generations.canRedo();
+  undo?.toggleAttribute('disabled',!generations.canUndo(p));redo?.toggleAttribute('disabled',!generations.canRedo());
   updatePull();
 }
 function pendingCardMarkup(){
@@ -174,7 +174,7 @@ function animateCreated(nodes,anchor){
 }
 function updateView(){
   const world=$('#world');if(world)world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.scale})`;
-  const z=$('#zoom-value');if(z)z.textContent=Math.round(view.scale*100)+'%';
+  const z=$('#zoom-value .lg-button__label');if(z)z.textContent=Math.round(view.scale*100)+'%';
 }
 function fitView(nodes=null,overview=false){
   const surface=$('#surface');if(!surface)return;const r=surface.getBoundingClientRect(),b=boundsOf(nodes||visibleNodes(p,{focusId,showHidden}));
@@ -200,7 +200,7 @@ function updatePull(){
   const workspace=$('.workspace');if(workspace)for(const child of workspace.children)if(child.id!=='shelf'&&!child.classList.contains('collection-backdrop'))child.inert=showShelf;
 }
 function toggleShelf(){
-  showShelf=!showShelf;savedSelection.clear();fanPinned=null;menu=null;
+  showShelf=!showShelf;savedSelection.clear();savedMultiSelect=false;fanPinned=null;menu=null;
   $('.workspace')?.classList.toggle('with-shelf',showShelf);
   const backdrop=$('.collection-backdrop');backdrop?.classList.toggle('is-open',showShelf);if(backdrop)backdrop.inert=!showShelf;
   const shelf=$('#shelf');shelf?.classList.toggle('is-open',showShelf);if(shelf)shelf.inert=!showShelf;
@@ -208,15 +208,20 @@ function toggleShelf(){
 }
 function drawShelf(){
   const shelf=$('#shelf');if(!shelf)return;
-  shelf.innerHTML=`<div class="shelf-heading"><div><h2>${emoji('⭐')} 收藏的方向 <span>${p.favorites.length}</span></h2></div><div>${savedSelection.size?button('导出选中 '+savedSelection.size+' 项','export-saved'):''}</div></div><div class="shelf-rope"></div><div class="saved-cards">${p.favorites.length?p.favorites.map((f,i)=>`<article class="saved-card type-${f.kind}" data-saved-card="${f.id}" style="--turn:${[-1.2,1,-.6,.8][i%4]}deg;--hang-delay:${i*35}ms"><label class="saved-check"><input type="checkbox" data-saved-check="${f.id}" ${savedSelection.has(f.id)?'checked':''} aria-label="选择方向：${esc(f.title)}"></label><button data-action="saved-detail" data-id="${f.id}"><span class="saved-kicker">${KINDS[f.kind].label}</span><h3>${esc(f.title)}</h3><p>${esc(f.description)}</p></button></article>`).join(''):'<div class="shelf-empty">还没有收藏</div>'}</div>`;
+  for(const id of savedSelection)if(!p.favorites.some(f=>f.id===id))savedSelection.delete(id);
+  if(!p.favorites.length)savedMultiSelect=false;
+  shelf.innerHTML=`<div class="shelf-heading"><div><h2>${emoji('⭐')} 收藏的方向 <span>${p.favorites.length}</span></h2></div><div>${savedSelection.size?button('导出选中 '+savedSelection.size+' 项','export-saved'):''}${p.favorites.length?button(savedMultiSelect?'完成':'选择导出','saved-select-mode',{extra:`aria-pressed="${savedMultiSelect}"`}):''}</div></div><div class="shelf-rope"></div><div class="saved-cards">${p.favorites.length?p.favorites.map((f,i)=>`<article class="saved-card type-${f.kind}" data-saved-card="${f.id}" style="--turn:${[-1.2,1,-.6,.8][i%4]}deg;--hang-delay:${i*35}ms"><button class="saved-favorite" data-action="remove-saved" data-id="${f.id}" aria-label="取消收藏：${esc(f.title)}" aria-pressed="true" title="取消收藏">${actionGlyph('star')}</button>${savedMultiSelect?`<label class="saved-export-check"><input type="checkbox" data-saved-check="${f.id}" ${savedSelection.has(f.id)?'checked':''} aria-label="选择导出：${esc(f.title)}"><span>选择导出</span></label>`:''}<button class="saved-card-open" data-action="saved-detail" data-id="${f.id}"><span class="saved-kicker">${KINDS[f.kind].label}</span><h3>${esc(f.title)}</h3><p>${esc(f.description)}</p></button></article>`).join(''):'<div class="shelf-empty">还没有收藏</div>'}</div>`;
 }
 function drawOutline(){
   const el=$('#outline');if(!el)return;
-  const relations=sceneRelations(p),visible=new Set(graphNodes().map(node=>node.id));
-  const groups=Object.entries(SCENE_CATEGORIES).filter(([category])=>p.nodes.some(node=>node.kind!=='root'&&relations.get(node.id).includes(category)));
-  el.innerHTML=`<div class="outline-heading"><span>探索路径 · 按场景</span>${iconButton('收起探索路径','outline','',{symbol:'×'})}</div><div class="outline-root">${button(esc(rootOf(p).title),'locate',{id:rootOf(p).id})}</div>${groups.map(([category,info])=>{
-    const members=p.nodes.filter(node=>node.kind!=='root'&&relations.get(node.id).includes(category));
-    return `<section class="scene-path-group" style="--path-color:${info.color}"><h3><span class="scene-swatch"></span>${info.label}<span>${members.length}</span></h3>${members.map(node=>`<div class="outline-item ${node.id===selected?'selected':''} ${visible.has(node.id)?'':'outline-hidden'}" style="--depth:${Math.min(ancestorsOf(p,node.id).length-1,6)}"><button data-action="locate" data-id="${node.id}"><span class="outline-dot" style="background:${info.color}"></span><span><small>${KINDS[node.kind].label}${visible.has(node.id)?'':' · 已收起'}</small>${esc(node.title)}</span>${node.merged?'<span class="outline-merge">∩</span>':''}</button></div>`).join('')}</section>`;
+  const visible=new Set(graphNodes().map(node=>node.id)),index=new Map(p.nodes.map(node=>[node.id,node]));
+  const groups=[{kind:'scene',label:'场景',color:'var(--scene)'},{kind:'people',label:'人物',color:'var(--people)'},{kind:'pain',label:'痛点',color:'var(--pain)'}];
+  el.innerHTML=`<div class="outline-heading"><span>探索路径</span>${iconButton('收起探索路径','outline','',{symbol:'×'})}</div><div class="outline-root">${button(esc(rootOf(p).title),'locate',{id:rootOf(p).id})}</div>${groups.map(({kind,label,color})=>{
+    const members=p.nodes.filter(node=>node.kind===kind);
+    return `<section class="outline-kind-group" data-outline-kind="${kind}" style="--path-color:${color}"><h3><span class="scene-swatch"></span>${label}<span>${members.length}</span></h3>${members.map(node=>{
+      const parents=node.parentIds.map(id=>index.get(id)?.title).filter(Boolean),origin=parents.length?'来自 '+parents.join(' / '):'独立卡片';
+      return `<div class="outline-item ${node.id===selected?'selected':''} ${visible.has(node.id)?'':'outline-hidden'}" style="--depth:0"><button data-action="locate" data-id="${node.id}" title="${esc(origin)}"><span class="outline-dot" style="background:${color}"></span><span><small>${esc(origin)}${visible.has(node.id)?'':' · 已收起'}</small>${esc(node.title)}</span>${node.merged?'<span class="outline-merge">∩</span>':''}</button></div>`;
+    }).join('')}</section>`;
   }).join('')}`;
 }
 function drawBranchControls(){
@@ -272,7 +277,7 @@ function updateNotices(){
 }
 function openProject(project){
   finishCardMotion();
-  pending?.controller.abort();pending=null;p=project;screen='workspace';selectOnly(rootOf(p).id);menu=null;fanPinned=null;focusId=null;showShelf=false;showOutline=false;showHidden=false;generations.clear();search='';assigning=null;connecting=null;editing=null;branchMenu=false;
+  pending?.controller.abort();pending=null;p=project;screen='workspace';selectOnly(rootOf(p).id);menu=null;fanPinned=null;focusId=null;showShelf=false;showOutline=false;showHidden=false;generations.clear();search='';assigning=null;connecting=null;editing=null;branchMenu=false;savedSelection.clear();savedMultiSelect=false;
   if(spreadCrowdedCards(p.nodes,new Set([rootOf(p).id])).size)persist();
   render();requestAnimationFrame(()=>fitView(null,true));
 }
@@ -521,6 +526,7 @@ function dispatch(action,el){
     case'clear-canvas-selection':selectOnly(null);drawGraph();break;
     case'export-scope-project':openModal('export',{scope:'project'});break;
     case'export-scope-canvas':openModal('export',{scope:'canvas'});break;
+    case'saved-select-mode':savedMultiSelect=!savedMultiSelect;if(!savedMultiSelect)savedSelection.clear();drawShelf();break;
     case'export-saved':openModal('export',true);break;
     case'share':openModal('share');break;
     case'close-modal':closeModal();break;
@@ -531,7 +537,14 @@ function dispatch(action,el){
     case'copy-share':copyShare();break;
     case'clear-model':api('/model/clear',{}).then(()=>{model={mode:'unconfigured'};closeModal();updateModelBadge();toast('已清除本次模型配置。');});break;
     case'copy-direction':{const saved=p.favorites.find(f=>f.id===id);copyText(toMarkdown(p,saved));break;}
-    case'remove-saved':commit(()=>p.favorites=p.favorites.filter(f=>f.id!==id));closeModal();drawShelf();drawGraph();break;
+    case'remove-saved':{
+      const position=p.favorites.findIndex(f=>f.id===id);if(position<0)break;
+      commit(()=>p.favorites=p.favorites.filter(f=>f.id!==id));savedSelection.delete(id);
+      if(modal?.kind==='saved-detail'&&modal.data.id===id)closeModal();
+      drawGraph();
+      if(!modal&&showShelf){const next=p.favorites[Math.min(position,p.favorites.length-1)];if(next)$(`[data-saved-card="${next.id}"] .saved-favorite`)?.focus({preventScroll:true});else $('.shelf-pull')?.focus({preventScroll:true});}
+      toast('已取消收藏。');break;
+    }
   }}catch(error){toast(error.message,'error');}
 }
 function modalShell(title,body,footer='',wide=false,symbol=''){return `<div class="modal-backdrop"><section class="modal ${wide?'modal-wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header class="modal-header"><div><span class="modal-eyebrow">有点想法</span><h2>${symbol?emoji(symbol):''}${esc(title)}</h2></div>${iconButton('关闭','close-modal','',{symbol:'×'})}</header>${body}${footer?`<footer class="modal-footer">${footer}</footer>`:''}</section></div>`;}
@@ -561,7 +574,7 @@ async function closeDirection(state){
   state.turnAnimation=turn.animate([{transform:currentTurn},{transform:'rotateY(0deg)'}],{duration:motionDuration(420),easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'});
   try{await state.flightAnimation.finished;}catch{}
   if(modal!==state)return;releaseDirection(state);modal=null;overlays.innerHTML='';
-  if(lastFocus?.isConnected)lastFocus.focus({preventScroll:true});else $('#surface')?.focus({preventScroll:true});
+  if(lastFocus?.isConnected)lastFocus.focus({preventScroll:true});else (showShelf?$('.shelf-pull'):$('#surface'))?.focus({preventScroll:true});
 }
 function openModal(kind,data=null){
   if(modal?.kind==='saved-detail')releaseDirection(modal);
@@ -611,7 +624,7 @@ function openModal(kind,data=null){
   }
   overlays.innerHTML=modalShell(title,body,footer,wide,headingEmoji);bindModal(kind,data);requestAnimationFrame(()=>($('.modal input,.modal textarea')||$('.modal button'))?.focus());
 }
-function closeModal(){if(modal?.kind==='saved-detail'){closeDirection(modal);return;}if(modal?.kind==='model')queuedAfterModel=null;modal=null;overlays.innerHTML='';if(lastFocus?.isConnected)lastFocus.focus();else if(screen==='workspace')$('#surface')?.focus({preventScroll:true});}
+function closeModal(){if(modal?.kind==='saved-detail'){closeDirection(modal);return;}if(modal?.kind==='model')queuedAfterModel=null;modal=null;overlays.innerHTML='';if(lastFocus?.isConnected)lastFocus.focus();else if(screen==='workspace')(showShelf?$('.shelf-pull'):$('#surface'))?.focus({preventScroll:true});}
 function bindModal(kind,data){
   $('.modal-backdrop').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
   $('#new-project-form')?.addEventListener('submit',e=>{e.preventDefault();const description=$('#project-description').value.trim();if(!description)return;const project=createProject(description,$('#project-name').value);projects.unshift(project);closeModal();openProject(project);persist();fanPinned=rootOf(p).id;drawGraph();toast('选题中心已建立。悬停卡片，从上方选择细化维度。');});
