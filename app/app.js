@@ -2,7 +2,6 @@ import { KINDS, CARD, uid, clone, createProject, rootOf, getPaths, ancestorsOf, 
 import { demoGenerate } from './demo.js';
 import { createBrowserModelClient } from './browser-model.js';
 import './vendor/liquid-glass/components.js';
-import './chromatic-glass.js';
 import {wheelIntent,gestureFactor,zoomView} from './canvas-gestures.js';
 import {GenerationHistory} from './generation-history.js';
 import {SCENE_CATEGORIES,inferSceneCategory,sceneRelations,edgeSceneCategories} from './scene-categories.js';
