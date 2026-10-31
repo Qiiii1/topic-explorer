@@ -200,24 +200,21 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 }
 .shelf-heading .button{color:#4c6585;border-radius:11px;min-height:32px}
 
-/* Two equal mode segments, sized to the existing glass dock controls. */
-.dock-toolbar lg-segmented#exploration-mode{flex:none;box-sizing:border-box;width:184px;height:var(--dock-control-size);padding:3px;gap:2px;border:1px solid #ffffffca;border-radius:18px;background:#ffffff66;box-shadow:0 1px 0 #ffffffa6 inset}
-.dock-toolbar lg-segmented#exploration-mode .lg-seg__option{flex:1;min-width:0;height:calc(var(--dock-control-size) - 8px);line-height:calc(var(--dock-control-size) - 8px);padding:0 12px;border-radius:14px;font-size:11px;font-weight:550;white-space:nowrap;color:#677a94}
-.dock-toolbar lg-segmented#exploration-mode>button[aria-checked=true]{color:#4c6585}
-.dock-toolbar lg-segmented#exploration-mode .lg-refract{box-sizing:border-box;padding:3px;gap:2px;border:1px solid transparent;border-radius:18px;background:#f6f9fd}
-.dock-toolbar lg-segmented#exploration-mode .lg-refract .lg-seg__option{color:#4c6585}
-@media(max-width:1100px) and (min-width:801px){
-  .manual-dock{width:calc(100% - 48px)}
-  .dock-toolbar lg-segmented#exploration-mode{order:-1;width:184px;margin:0 calc((100% - 184px)/2)}
-  .workspace{--dock-clearance:186px}
-}
-@media(max-width:800px){
-  .dock-toolbar lg-segmented#exploration-mode{order:0;width:184px;margin:0 calc((100% - 184px)/2)}
-  .workspace{--dock-clearance:222px}
-}
-@media(max-width:620px){
-  .dock-toolbar lg-segmented#exploration-mode{grid-column:1/-1;grid-row:1;justify-self:center;margin:0}
-  .dock-toolbar .canvas-tools,.dock-toolbar .generation-setting{grid-row:2}
-  .dock-toolbar .dock-actions{grid-row:3}
-  .dock-toolbar lg-segmented#exploration-mode .lg-seg__option{font-size:10px}
+/* Independent mode capsule sits above the original dock, aligned to its left edge. */
+.manual-dock{--mode-control-size:36px;display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.manual-dock>lg-panel.dock-panel{width:100%}
+.mode-dock{flex:none;border-radius:18px;background:#ffffff28;box-shadow:0 8px 24px #213c5b14,0 2px 6px #213c5b09;backdrop-filter:blur(32px) saturate(1.55);-webkit-backdrop-filter:blur(32px) saturate(1.55)}
+.mode-dock lg-segmented#exploration-mode{box-sizing:border-box;width:184px;height:var(--mode-control-size);padding:3px;gap:2px;border:1px solid #ffffffca;border-radius:18px;background:#ffffff66;box-shadow:0 1px 0 #ffffffa6 inset}
+.mode-dock lg-segmented#exploration-mode .lg-seg__option{flex:1;min-width:0;height:calc(var(--mode-control-size) - 8px);line-height:calc(var(--mode-control-size) - 8px);padding:0 12px;border-radius:14px;font-size:11px;font-weight:550;white-space:nowrap;color:#677a94}
+.mode-dock lg-segmented#exploration-mode>button[aria-checked=true]{color:#4c6585}
+.mode-dock lg-segmented#exploration-mode .lg-refract{box-sizing:border-box;padding:3px;gap:2px;border:1px solid transparent;border-radius:18px;background:#f6f9fd}
+.mode-dock lg-segmented#exploration-mode .lg-refract .lg-seg__option{color:#4c6585}
+.workspace{--dock-clearance:190px}
+@media(max-width:800px){.workspace{--dock-clearance:230px}}
+@media(max-width:620px){.mode-dock lg-segmented#exploration-mode .lg-seg__option{font-size:10px}}
+@media(max-width:360px){.manual-dock{--mode-control-size:32px}}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
+  .mode-dock{background:#f7faff;backdrop-filter:none;-webkit-backdrop-filter:none}
+  .mode-dock .lg-refract{visibility:hidden}
+  .mode-dock lg-segmented#exploration-mode>button[aria-checked=true]{background:#fff;color:#0064cc;box-shadow:0 1px 4px #263c651f}
 }
