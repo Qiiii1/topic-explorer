@@ -13,6 +13,13 @@ test('GitHub Pages：子目录资源可解析，使用托管模型且不包含�
     assert.match(html,/<meta name="topic-runtime" content="hosted">/);
     assert.match(html,/<meta name="topic-api-base" content="https:\/\/topic-api.example">/);
     assert.doesNotMatch(html,/127\.0\.0\.1/);
+    const versions=[...html.matchAll(/(?:src|href)="[^"]+\.(?:css|js)\?v=([a-f0-9]{12})"/g)].map(match=>match[1]);
+    assert.equal(versions.length,4);assert.equal(new Set(versions).size,1);
+    const entry=await readFile(join(output,'app.js'),'utf8');
+    assert.match(entry,new RegExp('domain\\.js\\?v='+versions[0]));
+    const protocol=await readFile(join(output,'model-protocol.js'),'utf8');
+    assert.match(protocol,new RegExp('inspiration\\.js\\?v='+versions[0]));
+
     const base='https://qiiii1.github.io/topic-explorer/';
     for(const [,asset] of html.matchAll(/(?:src|href)="([^"]+)"/g)){
       const url=new URL(asset,base);
