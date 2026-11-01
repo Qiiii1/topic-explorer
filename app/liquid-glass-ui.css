@@ -324,3 +324,5 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 #nodes .kind-idea,#nodes .kind-idea.is-subidea,#nodes .kind-people{--card-tint:#f1eafa;--card-border:#d6c7e9;--card-ink:#8060ae}
 #nodes .idea-card.kind-root .card-surface{background:linear-gradient(145deg,#ffffff70,#ffffff19 55%,#ffffff38),var(--card-tint)}
 #nodes .idea-card.kind-root .card-surface h3{color:#62462d}
+
+#nodes .kind-direction,#nodes .kind-scene{--card-tint:#e6f0fc;--card-border:#c3d5ed;--card-ink:#5684b5}
