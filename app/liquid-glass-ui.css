@@ -337,3 +337,12 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 /* Swap the lower stages: lavender directions, nearly-white cyan ideas. */
 #nodes .kind-direction,#nodes .kind-scene{--card-tint:#f1eafa;--card-border:#d6c7e9;--card-ink:#8060ae}
 #nodes .kind-idea,#nodes .kind-idea.is-subidea,#nodes .kind-people{--card-tint:#f6fbfc;--card-border:#dee9eb;--card-ink:#73939a}
+
+/* Floating dimension choices share the canvas glass, with much lighter colour. */
+.dimension-option{isolation:isolate;overflow:hidden;border:1px solid #ffffffd9;box-shadow:0 5px 15px #34496908,0 1px 0 #ffffffed inset,0 -1px 0 #ffffff80 inset;backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2)}
+.dimension-option.type-people{background:linear-gradient(145deg,#ffffffb8,#eef8f278);border-color:#d8e8dfb3;color:#598b7b}
+.dimension-option.type-pain{background:linear-gradient(145deg,#ffffffb8,#fff2e578);border-color:#efdfceb3;color:#ad805b}
+.dimension-option.type-scene{background:linear-gradient(145deg,#ffffffb8,#f2eafb78);border-color:#e3d8f0b3;color:#9279b4}
+.dimension-option::after{content:'';position:absolute;inset:3px;border-radius:inherit;border-top:1px solid #ffffffe6;background:linear-gradient(150deg,#ffffff33,transparent 55%);pointer-events:none;z-index:-1}
+.dimension-option:hover{background:linear-gradient(145deg,#fffffff2,#ffffffa6)!important;box-shadow:0 7px 20px #34496912,0 1px 0 #fff inset!important}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.dimension-option{backdrop-filter:none;-webkit-backdrop-filter:none}.dimension-option.type-people{background:#f1f8f4}.dimension-option.type-pain{background:#fff5eb}.dimension-option.type-scene{background:#f6f0fc}}
