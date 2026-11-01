@@ -283,3 +283,7 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .modal-compact-header .modal-footer{border-top-color:#dbe3ef99}
 .modal-compact-header .modal-footer>.button:not(.primary){border:1px solid #ffffffb3;border-radius:12px;background:#ffffff66;color:#52647d;box-shadow:0 1px 0 #ffffffb3 inset}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .project-picker .project-card{background:#fff;backdrop-filter:none;-webkit-backdrop-filter:none;border-color:#c6d3e4}}
+
+/* Keep the close target generous, with only the cross visible. */
+.modal-compact-header .modal-header .icon-button{background:transparent;border:0;box-shadow:none;border-radius:0}
+.modal-compact-header .modal-header .icon-button:hover{background:transparent;box-shadow:none;color:#637087;filter:none}
