@@ -272,7 +272,7 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 @media(prefers-reduced-motion:reduce){.modal-compact-header .form-actions .button.primary{transition:none}}
 
 /* Translucent brand light rather than an opaque pastel fill. */
-.modal-compact-header .form-actions .button.primary{color:#365979;border:1px solid #ffffffed;background:radial-gradient(ellipse 55% 65% at 100% 0,#9fe5df38,transparent 85%),linear-gradient(135deg,#ffd5a3b3,#ffe5c38c);box-shadow:0 5px 14px #829bd326,0 1px 0 #fff inset,0 -1px 0 #a6bde447 inset;backdrop-filter:blur(16px) saturate(1.6);-webkit-backdrop-filter:blur(16px) saturate(1.6);font-weight:600}
+.modal-compact-header .form-actions .button.primary{color:#365979;border:1px solid #ffffffed;background:radial-gradient(ellipse 55% 65% at 100% 0,#9fe5df38,transparent 85%),linear-gradient(135deg,#ffd5a3d1,#ffe5c3b3);box-shadow:0 5px 14px #829bd326,0 1px 0 #fff inset,0 -1px 0 #a6bde447 inset;backdrop-filter:blur(16px) saturate(1.6);-webkit-backdrop-filter:blur(16px) saturate(1.6);font-weight:600}
 .modal-compact-header .form-actions .button.primary::before{inset:2px;background:linear-gradient(155deg,#ffffffb3,transparent 48%);border-top:1px solid #ffffffd9}
-.modal-compact-header .form-actions .button.primary:hover{color:#2b4e70;background:radial-gradient(ellipse 55% 65% at 100% 0,#9fe5df47,transparent 85%),linear-gradient(135deg,#ffcd94c2,#ffdeb39c);box-shadow:0 7px 18px #829bd333,0 1px 0 #fff inset}
+.modal-compact-header .form-actions .button.primary:hover{color:#2b4e70;background:radial-gradient(ellipse 55% 65% at 100% 0,#9fe5df47,transparent 85%),linear-gradient(135deg,#ffcd94e0,#ffdeb3c2);box-shadow:0 7px 18px #829bd333,0 1px 0 #fff inset}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .form-actions .button.primary{background:#d9eaf7;color:#294867;backdrop-filter:none;-webkit-backdrop-filter:none}}
