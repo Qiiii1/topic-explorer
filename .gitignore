@@ -8,6 +8,9 @@ node_modules/
 .env.*
 !.env.example
 .local/
+.wrangler/
+.dev.vars
+.dev.vars.*
 coverage/
 dist/
 *.tgz

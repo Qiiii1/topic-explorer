@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/cloudflare-server']
   pull_request:
   workflow_dispatch:
 
@@ -33,5 +33,11 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Check syntax and behavior
         run: npm run validate
+      - name: Build managed frontend
+        run: npm run build:pages
+      - name: Bundle Cloudflare API
+        run: npm run cf:check
+        env:
+          WRANGLER_SEND_METRICS: 'false'
       - name: Verify package contents
         run: npm pack --dry-run

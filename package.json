@@ -17,6 +17,8 @@
     "app/",
     "scripts/",
     "server.mjs",
+    "cloudflare/",
+    "wrangler.jsonc",
     "test/",
     ".env.example",
     ".nvmrc"
@@ -26,12 +28,18 @@
     "start:env": "node --env-file=.env server.mjs",
     "dev": "node --watch server.mjs",
     "build:pages": "node scripts/build-pages.mjs",
+    "cf:dev": "wrangler dev --ip 127.0.0.1 --port 4183",
+    "cf:check": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "cf:deploy": "wrangler deploy",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check app/app.js && node --check app/domain.js && node --check app/scene-categories.js && node --check app/card-editing.js && node --check app/canvas-gestures.js && node --check app/generation-history.js && node --check app/demo.js && node --check app/browser-model.js && node --check app/model-protocol.js && node --check app/inspiration.js && node --check app/inspiration-rules.js && node --check scripts/build-pages.mjs",
+    "check": "node --check server.mjs && node --check app/app.js && node --check app/model-runtime.js && node --check cloudflare/worker.js && node --check app/domain.js && node --check app/scene-categories.js && node --check app/card-editing.js && node --check app/canvas-gestures.js && node --check app/generation-history.js && node --check app/demo.js && node --check app/browser-model.js && node --check app/model-protocol.js && node --check app/inspiration.js && node --check app/inspiration-rules.js && node --check scripts/build-pages.mjs",
     "validate": "npm run check && npm test"
   },
   "engines": {
     "node": ">=22"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "4.156.0"
+  }
 }

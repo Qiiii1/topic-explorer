@@ -1,7 +1,7 @@
 import {inspirationStep,inspirationInput} from './inspiration.js';
 import { KINDS, CARD, uid, clone, createProject, switchExplorationMode, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, mergeNodes, assignParent, favoriteNode, removeBranch, removeSelectedNodes, visibleNodes, boundsOf, validateProject, toMarkdown, planNearbySpace, planGenerationSpace, branchPositions, moveBranch, arrangeByMainline, canCombine, repelCards, spreadCrowdedCards, nodesInRect, selectionExport, importSelection } from './domain.js';
 import { demoGenerate } from './demo.js';
-import { createBrowserModelClient } from './browser-model.js';
+import {createModelRuntime} from './model-runtime.js';
 import './vendor/liquid-glass/components.js';
 import {wheelIntent,gestureFactor,zoomView} from './canvas-gestures.js';
 import {GenerationHistory} from './generation-history.js';
@@ -23,7 +23,7 @@ const chip=(kind,label=KINDS[kind].label)=>`<span class="type-chip type-${kind}"
 const actionGlyph=name=>`<svg class="action-glyph" viewBox="0 0 24 24" aria-hidden="true">${name==='undo'?'<path d="m9 5-5 5 5 5M4 10h10a5 5 0 0 1 0 10h-3"/>':name==='minus'?'<path d="M5 12h14"/>':name==='star'?'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/>':'<path d="M12 5v14M5 12h14"/>'}</svg>`;
 const glassAction=(label,action,options={})=>`<lg-button class="glass-action ${options.class||''} ${options.iconOnly?'glass-icon-action':''}" tone="light" radius="16" refraction="14" backdrop="#surface" data-action="${action}" ${options.iconOnly?`aria-label="${esc(label)}" title="${esc(options.title||label)}"`:''} ${options.id?`data-id="${esc(options.id)}"`:''} ${options.disabled?'disabled':''} ${options.extra||''}>${options.icon?icon(options.icon):options.glyph?actionGlyph(options.glyph):''}${options.iconOnly?'':label}</lg-button>`;
 const generations=new GenerationHistory();
-const browserModel=document.querySelector('meta[name="topic-runtime"][content="static"]')?createBrowserModelClient():null;
+const modelRuntime=createModelRuntime({hosted:!!document.querySelector('meta[name="topic-runtime"][content="hosted"]'),apiBase:document.querySelector('meta[name="topic-api-base"]')?.content||''});
 const STORAGE='topic-explorer-projects-v1';
 let projects=[];try{projects=JSON.parse(localStorage.getItem(STORAGE)||'[]').flatMap(value=>{try{return [validateProject(value)];}catch{return [];}});}catch{projects=[];}
 let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,assigning=null,connecting=null,pending=null,search='',query='',editing=null,branchMenu=false,modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},savedSelection=new Set(),savedMultiSelect=false,drag=null,spaceHeld=false;
@@ -51,13 +51,9 @@ function setCanvasSelection(ids,primary=null){
 }
 function selectOnly(id){setCanvasSelection(id?[id]:[],id);}
 function selectedPaths(){try{return getPaths(p,current().id);}catch{return [];}}
-async function api(path,body,signal){
-  if(browserModel)return browserModel.request(path,body,signal);
-  const response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal});
-  const value=await response.json();if(!response.ok)throw new Error(value.error||'操作未完成，请重试');return value;
-}
-async function refreshModel(){try{model=await api('/status');if(model.mode==='demo')model.mode='unconfigured';updateModelBadge();}catch{model={mode:'unconfigured',model:''};}}
-function updateModelBadge(){const el=$('#model-status');if(el){el.innerHTML=`<span class="status-dot ${model.mode==='live'?'connected':''}"></span><span>${model.mode==='live'?esc(model.model):'连接 AI'}</span>`;el.title='模型设置';}}
+const api=(path,body,signal)=>modelRuntime.request(path,body,signal);
+async function refreshModel(){try{model=await api('/status');if(model.mode==='demo')model.mode='unconfigured';}catch{model={mode:'unconfigured',model:''};}model.managed=!!model.managed||modelRuntime.managed;updateModelBadge();}
+function updateModelBadge(){const el=$('#model-status');if(el){el.innerHTML=`<span class="status-dot ${model.mode==='live'?'connected':''}"></span><span>${model.mode==='live'?esc(model.model):modelRuntime.managed?'AI 暂未连接':'连接 AI'}</span>`;el.title=model.managed?'AI 服务':'模型设置';}}
 function header(){return `<header class="app-header">
   <div class="header-start"><button class="brand" data-action="home" aria-label="有点想法，返回首页"><span class="brand-mark" aria-hidden="true"><img class="brand-logo" src="./assets/brand/logo.svg" alt="" width="44" height="30"></span><span>有点想法<span class="brand-dot">.</span></span></button>
   ${screen==='workspace'?`<span class="header-divider"></span><button class="project-title" data-action="project-settings"><span class="project-title-text">${esc(p.title)}</span><svg class="small-chevron" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m5 6.5 3 3 3-3"/></svg></button><span class="autosaved"><span></span>已保存</span>`:''}</div>
@@ -602,6 +598,7 @@ function dispatch(action,el){
     case'download-png':exportPng();break;
     case'print':printProject();break;
     case'copy-share':copyShare();break;
+    case'refresh-model':refreshModel().then(()=>{if(model.mode==='live'){const work=queuedAfterModel;closeModal();work?.();}else toast('AI 服务暂未连接，请稍后再试。','error');});break;
     case'clear-model':api('/model/clear',{}).then(()=>{model={mode:'unconfigured'};closeModal();updateModelBadge();toast('已清除本次模型配置。');});break;
     case'copy-direction':{const saved=p.favorites.find(f=>f.id===id);copyText(toMarkdown(p,saved));break;}
     case'remove-saved':{
@@ -657,7 +654,10 @@ function openModal(kind,data=null){
   if(kind==='new-project'){
     title='新建探索';body=`<form id="new-project-form"><label class="field"><span>选题内容</span><textarea id="project-description" rows="5" maxlength="2000" required ></textarea></label><label class="field"><span>项目名称 <em>选填</em></span><input id="project-name" maxlength="50" ></label><div class="form-actions">${button('取消','close-modal')}<button type="submit" class="button primary">创建 ${icon('arrow')}</button></div></form>`;
   }
-  if(kind==='model'){
+  if(kind==='model'&&(model.managed||modelRuntime.managed)){
+    title='AI 服务';body=`<div class="original-idea"><strong>${model.mode==='live'?esc(model.model):'暂未连接'}</strong></div>`;footer=button('重新连接','refresh-model')+button('关闭','close-modal',{class:'primary'});
+  }
+  if(kind==='model'&&!model.managed&&!modelRuntime.managed){
     const deepseek=model.provider==='deepseek'||!model.baseUrl||model.baseUrl.includes('api.deepseek.com');
     const existingName=/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(model.model||'')||/^sk[-_]/.test(model.model||'')?'':model.model;
     const choices=model.models?.length?model.models:[{id:'deepseek-flash'},{id:'deepseek-v4-pro'}];

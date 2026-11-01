@@ -8,9 +8,9 @@
 
 [打开有点想法](https://qiiii1.github.io/topic-explorer/) · [查看示例](https://qiiii1.github.io/topic-explorer/?demo=1)
 
-在线版由 GitHub Pages 托管，无需安装。点击右上角「连接 AI」，填写自己的模型服务、模型 ID 和 API Key 后即可继续生成。密钥仅保留在当前网页的内存中，刷新或关闭后清除；浏览器直接请求所填写的模型服务，密钥和生成内容不会发送给 GitHub。其他兼容服务需要允许跨域访问（CORS）。
+此分支的在线版由 GitHub Pages 托管网页，Cloudflare Workers 提供 AI 生成接口。域名继续使用 GitHub 的地址；模型 API Key 仅在 Cloudflare Secret 中配置，访客无需填写或持有站点密钥。部署步骤见 [Cloudflare 配置](cloudflare/README.md)。尚未配置后端时仍可浏览、编辑和导出项目。
 
-项目仍自动保存在访问者自己的浏览器中；分享链接包含一份可编辑的项目快照，接收者需单独配置自己的 AI。在线版和本地版的浏览器存储相互独立，可通过 JSON 导入导出迁移项目。
+项目仍自动保存在访问者自己的浏览器中；分享链接包含一份可编辑的项目快照，接收者通过同一个托管接口生成。在线版和本地版的浏览器存储相互独立，可通过 JSON 导入导出迁移项目。服务端暂不保存项目内容，账号和 30 次额度尚未接入。
 
 ![选题探索画布](https://raw.githubusercontent.com/Qiiii1/topic-explorer/main/reference/v3-cards.png)
 
@@ -35,7 +35,7 @@ npm start
 
 ## 配置真实 AI
 
-点击右上角「连接 AI」，填写兼容 Chat Completions 的服务基础地址、模型名称和 API Key。例如填写服务商提供的 `https://…/v1` 基础地址；请求会发送到 `/chat/completions`。服务需要支持 JSON 输出格式。
+Cloudflare 托管版通过服务端配置，详见 [部署说明](cloudflare/README.md)。以下配置方式用于 `npm start` 启动的本机开发服务：点击右上角「连接 AI」，填写兼容 Chat Completions 的服务基础地址、模型名称和 API Key。例如填写服务商提供的 `https://…/v1` 基础地址；请求会发送到 `/chat/completions`。服务需要支持 JSON 输出格式。
 
 通过页面填写的密钥仅保留在本地 Node 服务进程内存，关闭后清除；不会写入项目文件、分享链接或浏览器本地存储。当前配置由本机打开的原型页面共用。首页示例是静态预置内容，后续生成仍需连接真实模型。当前分支、项目背景和上游路径会发送到你配置的模型服务。
 
@@ -54,7 +54,7 @@ npm run start:env
 
 模型和密钥都填入后才会在启动时加载模型配置；留空可在网页中配置。`npm start` 使用系统环境变量，`npm run start:env` 额外读取本机 `.env`。`.env` 已被 Git 忽略，它包含手动保存的本地配置，请自行保管；仓库只提交不含密钥的示例文件。
 
-本地版固定监听本机 `127.0.0.1`。临时修改端口可以用 `npm start -- --port 4180`。本地版通过 Node 服务转发 AI 请求；在线版由单独的静态构建启用浏览器直连，两者共用请求格式和结果校验。
+本地版固定监听本机 `127.0.0.1`。临时修改端口可以用 `npm start -- --port 4180`。本地版通过 Node 服务转发 AI 请求；在线版调用 Cloudflare 后端，两者共用请求格式和结果校验。
 
 ## 可以体验
 
