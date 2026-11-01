@@ -334,9 +334,6 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 #nodes .idea-card.is-child:not(.is-selected) .card-surface{border-color:#6fa9dc}
 #nodes .idea-card.is-selected .card-surface,#nodes .idea-card.is-connecting.drop-target .card-surface{border-color:#007aff}
 
-/* Direction cards use pearl-white glass, with cool colour confined to the rim. */
-#nodes .kind-direction,#nodes .kind-scene{--card-tint:#eef9e9;--card-border:#d2e5c9;--card-ink:#699454}
-#nodes .idea-card.kind-direction .card-surface{background:radial-gradient(ellipse at 100% 0,#c8efac59,transparent 70%),linear-gradient(145deg,#fffffff2,#f2faedd9);border-color:#d2e5c9;box-shadow:0 5px 16px #3449690b,0 1px 0 #fff inset,0 -1px 0 #e0ecd966 inset}
-#nodes .idea-card.kind-direction.is-upstream .card-surface{border-color:#9cbfe5}
-#nodes .idea-card.kind-direction.is-child:not(.is-selected) .card-surface{border-color:#6fa9dc}
-#nodes .idea-card.kind-direction.is-selected .card-surface,#nodes .idea-card.kind-direction.is-connecting.drop-target .card-surface{border-color:#007aff;box-shadow:0 0 0 5px #007aff1c,0 9px 26px #007aff16,0 1px 0 #fff inset}
+/* Swap the lower stages: lavender directions, nearly-white cyan ideas. */
+#nodes .kind-direction,#nodes .kind-scene{--card-tint:#f1eafa;--card-border:#d6c7e9;--card-ink:#8060ae}
+#nodes .kind-idea,#nodes .kind-idea.is-subidea,#nodes .kind-people{--card-tint:#f6fbfc;--card-border:#dee9eb;--card-ink:#73939a}
