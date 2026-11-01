@@ -260,3 +260,12 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .modal-compact-header .field input,.modal-compact-header .field textarea{background:#ffffff94;border-color:#dce2edb3;box-shadow:0 1px 0 #ffffffc9 inset}
 .modal-compact-header .modal-header .icon-button{background:#ffffff75;border:1px solid #ffffffbc;box-shadow:0 2px 6px #26375308;color:#8a93a3}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal.modal-compact-header{background:#f9fbff;backdrop-filter:none;-webkit-backdrop-filter:none;border-color:#c6d3e4}.modal-compact-header .field input,.modal-compact-header .field textarea{background:#fff}}
+
+/* Let more of the backdrop through, with a softly tinted glass primary action. */
+.modal.modal-compact-header{background:linear-gradient(135deg,#ffffffb8,#f8faff9c 60%,#ffffffb0) padding-box,linear-gradient(130deg,#dcd6ee80,#ffffffb3 28%,#d4e9e680 55%,#f0ded87a 78%,#eadded80) border-box;backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4)}
+.modal-compact-header .field input,.modal-compact-header .field textarea{background:#ffffff66}
+.modal-compact-header .form-actions .button.primary{color:#526287;border:1px solid #ffffffdb;background:linear-gradient(115deg,#d7c8f38c,#c4e9e29c 55%,#f4d8e18c);border-radius:12px;box-shadow:0 5px 16px #53608012,0 1px 0 #ffffffed inset,0 -1px 0 #b9c5db47 inset;backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);transition:background 180ms,box-shadow 180ms,transform 180ms}
+.modal-compact-header .form-actions .button.primary:hover{color:#46577c;background:linear-gradient(115deg,#d7c8f3b3,#c4e9e2c2 55%,#f4d8e1b3);box-shadow:0 7px 20px #5360801a,0 1px 0 #fff inset;filter:none}
+.modal-compact-header .form-actions .button.primary:active{transform:scale(.98)}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal.modal-compact-header{background:#f9fbff;backdrop-filter:none;-webkit-backdrop-filter:none}.modal-compact-header .field input,.modal-compact-header .field textarea{background:#fff}.modal-compact-header .form-actions .button.primary{background:#e1e6f6;color:#35466d;backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){.modal-compact-header .form-actions .button.primary{transition:none}}
