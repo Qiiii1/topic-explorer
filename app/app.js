@@ -57,7 +57,6 @@ function header(){return `<header class="app-header">
   ${screen==='workspace'?`<span class="header-divider"></span><button class="project-title" data-action="project-settings"><span class="project-title-text">${esc(p.title)}</span><svg class="small-chevron" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m5 6.5 3 3 3-3"/></svg></button><span class="autosaved"><span></span>已保存</span>`:''}</div>
   ${screen==='workspace'?`<button class="shelf-pull ${showShelf?'is-open':''}" data-action="shelf" aria-controls="shelf" aria-expanded="${showShelf}" aria-label="${showShelf?'拉起绳子，收起收藏':'拉下绳子，查看收藏'}，${p.favorites.length} 个方向" title="${showShelf?'拉起，收起收藏':'拉一下，查看收藏'}"><img src="./assets/icons/figma-shelf-pull.svg" alt="" aria-hidden="true"><span class="pull-count" ${p.favorites.length?'':'hidden'}>${p.favorites.length}</span></button>`:''}
   <div class="header-actions">${screen==='workspace'?`<label class="search-field">${icon('search')}<input id="node-search" aria-label="搜索节点" placeholder="搜索想法" value="${esc(search)}"></label>${button('导出','export')}${button('分享','share')}`:''}
-  <button id="model-status" class="model-status" data-action="model"></button>
   </div></header>`;}
 function render(){if(screen==='home')renderHome();else renderWorkspace();updateModelBadge();}
 function renderHome(){
