@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createProject,rootOf,appendGenerated,appendManual,mergeNodes,favoriteNode,assignParent,removeBranch,validateProject,clone} from '../app/domain.js';
+import {createProject,rootOf,appendGenerated,appendManual,mergeNodes,favoriteNode,assignParent,removeBranch,validateProject,clone,removeSelectedNodes} from '../app/domain.js';
 import {GenerationHistory} from '../app/generation-history.js';
 
 const candidate=title=>({title,description:'候选说明',rationale:'从来源进一步细化'});
@@ -66,4 +66,37 @@ test('恢复旧关联时跳过会与新手动归属形成循环的连线',()=>{
   history.undo(p);assignParent(p,source.id,child.id);
   history.redo(p);
   assert.deepEqual(child.parentIds,[]);assert.deepEqual(source.parentIds,[child.id]);validateProject(p);
+});
+
+
+test('生成与批量删除按同一时间顺序撤销重做，恢复位置、内容、来源连线',()=>{
+  const {p,root,history}=setup();
+  const batch=appendGenerated(p,root.id,'scene',[candidate('甲'),candidate('乙')],'live');history.record(batch);
+  batch[0].x=911;batch[0].title='编辑后的甲';
+  const before=clone(p),removed=removeSelectedNodes(p,[batch[0].id]);history.recordDeletion(before,removed);
+  assert.equal(history.canUndo(p),true);history.undo(p);assert.equal(history.lastEffect,'restored');
+  assert.equal(p.nodes.find(n=>n.id===batch[0].id).x,911);assert.equal(p.nodes.find(n=>n.id===batch[0].id).title,'编辑后的甲');
+  assert.ok(p.edges.some(e=>e.from===root.id&&e.to===batch[0].id));validateProject(p);
+  history.undo(p);assert.equal(p.nodes.length,1);assert.equal(history.lastEffect,'removed');
+  history.redo(p);assert.equal(p.nodes.length,3);history.redo(p);assert.equal(p.nodes.length,2);assert.ok(!p.nodes.some(n=>n.id===batch[0].id));validateProject(p);
+});
+
+test('撤销删除恢复共享交集两侧关联，保留其他卡片后续编辑与收藏，反复重做不丢连线',()=>{
+  const {p,root,history}=setup();
+  const [a,b]=appendGenerated(p,root.id,'scene',[candidate('甲'),candidate('乙')]);
+  const shared=mergeNodes(p,a.id,b.id,candidate('交集')),child=appendManual(p,a.id,'pain','未选后代');favoriteNode(p,shared.id);
+  const before=clone(p);history.recordDeletion(before,removeSelectedNodes(p,[a.id]));b.title='之后编辑的乙';b.x=1700;
+  for(let i=0;i<3;i++){
+    history.undo(p);assert.deepEqual(p.nodes.find(n=>n.id===shared.id).parentIds,[a.id,b.id]);assert.equal(p.nodes.find(n=>n.id===shared.id).merged,true);assert.deepEqual(p.nodes.find(n=>n.id===child.id).parentIds,[a.id]);assert.equal(b.title,'之后编辑的乙');assert.equal(b.x,1700);assert.equal(p.favorites.length,1);validateProject(p);
+    history.redo(p);assert.deepEqual(shared.parentIds,[b.id]);assert.deepEqual(child.parentIds,[]);validateProject(p);
+  }
+});
+
+test('分支删除可撤销；保护题目不产生记录；新删除清空重做栈',()=>{
+  const {p,root,history}=setup();
+  const source=appendManual(p,root.id,'scene','来源');const child=appendManual(p,source.id,'pain','子节点');
+  const before=clone(p);history.recordDeletion(before,removeBranch(p,source.id));assert.equal(p.nodes.length,1);
+  history.undo(p);assert.equal(p.nodes.length,3);assert.deepEqual(p.nodes.find(n=>n.id===child.id).parentIds,[source.id]);
+  const second=clone(p);history.recordDeletion(second,removeSelectedNodes(p,[child.id]));assert.equal(history.canRedo(),false);
+  const empty=new GenerationHistory();empty.recordDeletion(p,removeSelectedNodes(p,[root.id]));assert.equal(empty.canUndo(p),false);validateProject(p);
 });
