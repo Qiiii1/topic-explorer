@@ -40,13 +40,15 @@ export async function handleRequest(request,env,{fetcher=fetch}={}){
   let response;
   try{
     response=await fetcher(config.baseUrl+'/chat/completions',{
-      method:'POST',redirect:'error',headers:{'Content-Type':'application/json',Authorization:`Bearer ${config.apiKey}`},
+      method:'POST',redirect:'manual',headers:{'Content-Type':'application/json',Authorization:`Bearer ${config.apiKey}`},
       body:JSON.stringify(generationPayload(input,config)),signal,
     });
   }catch{
     return send(request.signal.aborted?499:timeout.aborted?504:502,{error:request.signal.aborted?'生成已取消。':timeout.aborted?'模型服务响应超时，可以重试。':'AI 服务连接失败，请稍后重试。'});
   }
   if(request.signal.aborted)return send(499,{error:'生成已取消。'});
+  // Workers has no redirect:error mode. Reject redirects without forwarding credentials.
+  if(response.status>=300&&response.status<400)return send(502,{error:'模型服务地址发生跳转，请由站点检查配置。'});
   if(!response.ok)return send(response.status===429?429:502,{error:await providerError(response,config)});
   try{
     const result=await response.json(),content=result.choices?.[0]?.message?.content;

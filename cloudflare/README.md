@@ -15,7 +15,7 @@
 
 ## 本地验证
 
-`npm run validate` 验证应用与托管接口，`npm run cf:check` 只打包、不上传、不调用真实模型。`npm run cf:dev` 在 4183 端口运行 Worker；可使用被 Git 忽略的 `.dev.vars` 配置本机开发用的密钥和允许来源，不要提交这个文件。
+`npm run validate` 验证应用与托管接口，包含隔离的 Cloudflare workerd 运行时回归测试，外部模型请求由测试替身接管，不调用真实模型。`npm run cf:check` 只打包、不上传。`npm run cf:dev` 在 4183 端口运行 Worker；可使用被 Git 忽略的 `.dev.vars` 配置本机开发用的密钥和允许来源，不要提交这个文件。
 
 `npm run build:pages` 只将公开的 `TOPIC_API_BASE_URL` 写入网页。地址为空时，网页仍保持托管模式并显示暂未连接，不要求访客输入密钥。原有 `npm start` 本地开发服务仍支持本机配置自己的模型。
 

@@ -19,7 +19,7 @@ test('托管 API：仅服务端持有凭据，网页不能读出、替换或清�
   let calls=0;
   const fetcher=async(url,options)=>{
     calls++;assert.equal(url,'https://model.example/v1/chat/completions');assert.equal(options.headers.Authorization,'Bearer '+env.TOPIC_AI_API_KEY);
-    assert.equal(options.redirect,'error');const payload=JSON.parse(options.body);assert.equal(payload.model,'server-model');assert.match(payload.messages[1].content,/四周完成/);
+    assert.equal(options.redirect,'manual');const payload=JSON.parse(options.body);assert.equal(payload.model,'server-model');assert.match(payload.messages[1].content,/四周完成/);
     return upstream(Array.from({length:10},(_,i)=>({...card,title:card.title+i})));
   };
   const status=await handleRequest(request('/api/status'),env,{fetcher});
