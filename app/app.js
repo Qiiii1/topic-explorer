@@ -11,7 +11,6 @@ import {editCard,selectionRelations} from './card-editing.js';
 const $=(selector,scope=document)=>scope.querySelector(selector);
 const $$=(selector,scope=document)=>[...scope.querySelectorAll(selector)];
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const emoji=symbol=>`<span class="ui-emoji" aria-hidden="true">${esc(symbol)}</span>`;
 const icons={branch:'git-branch',search:'search',back:'arrow-left',arrow:'arrow-right',scene:'stack-2',pain:'rocket',people:'users',merge:'git-merge',settings:'world-cog',file:'file-text',save:'device-floppy',refresh:'refresh',layers:'stack-2',link:'arrows-split',tag:'tag',lock:'lock'};
 function icon(name,extra=''){
   if(['plus','star','undo','close'].includes(name))return `<img class="source-icon ${extra}" src="./assets/icons/figma-${name}.svg" alt="" aria-hidden="true">`;
@@ -36,9 +35,8 @@ function persist(){
   try{localStorage.setItem(STORAGE,JSON.stringify(projects));}catch{toast('浏览器存储空间不足，请导出项目文件。','error');}
 }
 function commit(change){finishCardMotion();change();persist();}
-function toast(message,type='success',symbol=''){
+function toast(message,type='success'){
   const el=document.createElement('div');el.className=`toast toast-${type}`;
-  if(symbol){const decoration=document.createElement('span');decoration.className='ui-emoji';decoration.setAttribute('aria-hidden','true');decoration.textContent=symbol;el.appendChild(decoration);}
   el.appendChild(document.createTextNode(message));$('#toasts').appendChild(el);setTimeout(()=>el.remove(),type==='error'?6000:3600);
 }
 const isInspiration=()=>p?.explorationMode==='inspiration';
@@ -64,7 +62,7 @@ function header(){return `<header class="app-header">
 function render(){if(screen==='home')renderHome();else renderWorkspace();updateModelBadge();}
 function renderHome(){
   cancelCollectionFlight();
-  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="home-launch-content"><img class="home-brand-logo" src="./assets/brand/logo.svg" alt="有点想法" width="196" height="131"><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project">${emoji('🌱')}<span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects">${emoji('📂')}<span>打开项目</span></button></div></div></main>`;
+  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="home-launch-content"><img class="home-brand-logo" src="./assets/brand/logo.svg" alt="有点想法" width="196" height="131"><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project"><span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects"><span>打开项目</span></button></div></div></main>`;
 }
 function renderWorkspace(){
   cancelCollectionFlight();
@@ -215,31 +213,37 @@ function toggleShelf(){
 function cancelCollectionFlight(){
   if(!collectionFlight)return;
   const state=collectionFlight;collectionFlight=null;
-  state.animation?.cancel();state.copy.remove();
-  state.target.classList.remove('is-collecting');state.target.style.removeProperty('animation');
+  state.animation?.cancel();
+  if(state.slot.isConnected)state.slot.replaceWith(state.target);else state.target.remove();
+  state.target.classList.remove('collection-flight');
+  state.target.setAttribute('style',state.style+';animation:none');
 }
-function flyToCollection(source,from,savedId){
+function flyToCollection(from,savedId){
   cancelCollectionFlight();
   const target=$(`[data-saved-card="${savedId}"]`),shelf=$('#shelf');
-  if(!source||!target||!shelf||!motionDuration(1)||!from.width||!from.height)return;
-  // The shelf is still descending. Remove its current translation to measure the landing spot.
-  target.style.animation='none';
+  if(!target||!shelf||!motionDuration(1)||!from?.width||!from.height)return;
+  const originalStyle=target.getAttribute('style')||'';
+  target.style.animation='none';target.style.transform='none';
   const rect=target.getBoundingClientRect(),shift=new DOMMatrix(getComputedStyle(shelf).transform).m42;
-  const to={left:rect.left,top:rect.top-shift,width:rect.width,height:rect.height};
-  const copy=document.createElement('div');
-  copy.className=`collection-flight idea-card kind-${source.dataset.kind||'idea'} inspiration-workspace`;
-  copy.setAttribute('aria-hidden','true');copy.inert=true;
-  copy.append(source);
-  copy.querySelectorAll('button,input,textarea,select,[id]').forEach(el=>el.remove());
-  document.body.append(copy);target.classList.add('is-collecting');
-  const transform=(left,top,width,height)=>`translate(${left}px,${top}px) scale(${width/CARD.width},${height/CARD.height})`;
-  const start=transform(from.left,from.top,from.width,from.height),end=transform(to.left,to.top,to.width,to.height);
-  const state={copy,target,animation:null};collectionFlight=state;
-  state.animation=copy.animate([
-    {transform:start,opacity:1,offset:0},
-    {transform:transform((from.left+to.left)/2,Math.max(76,Math.min(from.top,to.top)-36),(from.width+to.width)/2,(from.height+to.height)/2),opacity:1,offset:.55},
-    {transform:end,opacity:1,offset:1}
-  ],{duration:820,easing:'cubic-bezier(.22,.75,.25,1)',fill:'both'});
+  const width=target.offsetWidth,height=target.offsetHeight;
+  const origin=getComputedStyle(target).transformOrigin.split(' ').map(parseFloat);
+  const turn=getComputedStyle(target).getPropertyValue('--turn').trim()||'0deg';
+  const to={left:rect.left,top:rect.top-shift};
+  // Reserve the hanging slot while the actual saved card flies above the canvas.
+  const slot=document.createElement('div');slot.className='collection-slot';slot.setAttribute('aria-hidden','true');
+  Object.assign(slot.style,{width:width+'px',height:height+'px'});target.replaceWith(slot);
+  document.body.append(target);target.classList.add('collection-flight');
+  Object.assign(target.style,{position:'fixed',left:'0',top:'0',width:width+'px',height:height+'px',boxSizing:'border-box',margin:'0',transformOrigin:origin[0]+'px '+origin[1]+'px'});
+  const transform=(left,top,sx,sy,angle='0deg')=>`translate3d(${left-origin[0]*(1-sx)}px,${top-origin[1]*(1-sy)}px,0) scale(${sx},${sy}) rotate(${angle})`;
+  const state={target,slot,style:originalStyle,animation:null};collectionFlight=state;
+  // Sample one continuous curve: the old middle waypoint introduced a visible sharp turn.
+  const dx=to.left-from.left,dy=to.top-from.top,arc=Math.min(60,Math.hypot(dx,dy)*.12);
+  const c1={x:from.left+dx*.2,y:from.top+dy*.35-arc},c2={x:from.left+dx*.75,y:to.top-arc};
+  const frames=Array.from({length:41},(_,i)=>{
+    const t=i/40,u=1-t,x=u*u*u*from.left+3*u*u*t*c1.x+3*u*t*t*c2.x+t*t*t*to.left,y=u*u*u*from.top+3*u*u*t*c1.y+3*u*t*t*c2.y+t*t*t*to.top;
+    return {offset:t,transform:transform(x,y,from.width/width+(1-from.width/width)*t,from.height/height+(1-from.height/height)*t,parseFloat(turn)*t+'deg')};
+  });
+  state.animation=target.animate(frames,{duration:760,easing:'cubic-bezier(.2,.6,.3,1)',fill:'both'});
   const finish=()=>{if(collectionFlight===state)cancelCollectionFlight();};
   state.animation.finished.then(finish,finish);
 }
@@ -248,7 +252,7 @@ function drawShelf(){
   const shelf=$('#shelf');if(!shelf)return;
   for(const id of savedSelection)if(!p.favorites.some(f=>f.id===id))savedSelection.delete(id);
   if(!p.favorites.length)savedMultiSelect=false;
-  shelf.innerHTML=`<div class="shelf-heading"><div><h2>${emoji('⭐')} 收藏的方向 <span>${p.favorites.length}</span></h2></div><div>${savedSelection.size?button('导出选中 '+savedSelection.size+' 项','export-saved'):''}${p.favorites.length?button(savedMultiSelect?'完成':'选择导出','saved-select-mode',{extra:`aria-pressed="${savedMultiSelect}"`}):''}</div></div><div class="shelf-rope"></div><div class="saved-cards">${p.favorites.length?p.favorites.map((f,i)=>`<article class="saved-card type-${f.kind}" data-saved-card="${f.id}" style="--turn:${[-1.2,1,-.6,.8][i%4]}deg;--hang-delay:${i*35}ms"><button class="saved-favorite" data-action="remove-saved" data-id="${f.id}" aria-label="取消收藏：${esc(f.title)}" aria-pressed="true" title="取消收藏">${actionGlyph('star')}</button>${savedMultiSelect?`<label class="saved-export-check"><input type="checkbox" data-saved-check="${f.id}" ${savedSelection.has(f.id)?'checked':''} aria-label="选择导出：${esc(f.title)}"><span>选择导出</span></label>`:''}<button class="saved-card-open" data-action="saved-detail" data-id="${f.id}"><span class="saved-kicker">${KINDS[f.kind].label}</span><h3>${esc(f.title)}</h3><p>${esc(f.description)}</p></button></article>`).join(''):'<div class="shelf-empty">还没有收藏</div>'}</div>`;
+  shelf.innerHTML=`<div class="shelf-heading"><div><h2>收藏的方向 <span>${p.favorites.length}</span></h2></div><div>${savedSelection.size?button('导出选中 '+savedSelection.size+' 项','export-saved'):''}${p.favorites.length?button(savedMultiSelect?'完成':'选择导出','saved-select-mode',{extra:`aria-pressed="${savedMultiSelect}"`}):''}</div></div><div class="shelf-rope"></div><div class="saved-cards">${p.favorites.length?p.favorites.map((f,i)=>`<article class="saved-card type-${f.kind}" data-saved-card="${f.id}" style="--turn:${[-1.2,1,-.6,.8][i%4]}deg;--hang-delay:${i*35}ms"><button class="saved-favorite" data-action="remove-saved" data-id="${f.id}" aria-label="取消收藏：${esc(f.title)}" aria-pressed="true" title="取消收藏">${actionGlyph('star')}</button>${savedMultiSelect?`<label class="saved-export-check"><input type="checkbox" data-saved-check="${f.id}" ${savedSelection.has(f.id)?'checked':''} aria-label="选择导出：${esc(f.title)}"><span>选择导出</span></label>`:''}<button class="saved-card-open" data-action="saved-detail" data-id="${f.id}"><span class="saved-kicker">${KINDS[f.kind].label}</span><h3>${esc(f.title)}</h3><p>${esc(f.description)}</p></button></article>`).join(''):'<div class="shelf-empty">还没有收藏</div>'}</div>`;
 }
 function drawOutline(){
   const el=$('#outline');if(!el)return;
@@ -552,16 +556,19 @@ function dispatch(action,el){
     case'expand':fanPinned=null;generate(id,el.dataset.kind);break;
     case'expand-same':{const n=p.nodes.find(v=>v.id===id);selectOnly(id);if(isInspiration()){generate(id,inspirationStep(p,n).targetKind);}else if(n.kind==='root'){menu=null;fanPinned=fanPinned===id?null:id;drawGraph();}else generate(id,n.kind);break;}
     case'favorite':{
-      const original=$(`[data-node="${id}"]`),from=original?.getBoundingClientRect(),surface=original?.querySelector('.card-surface')?.cloneNode(true);
-      if(surface)surface.dataset.kind=p.nodes.find(node=>node.id===id)?.kind;
-      let result;commit(()=>result=favoriteNode(p,id));drawGraph();
+      const from=$(`[data-node="${id}"]`)?.getBoundingClientRect();
+      let result;commit(()=>result=favoriteNode(p,id));
+      const star=$(`[data-node="${id}"] .card-star`);
+      if(star){star.classList.toggle('is-saved',!!result);star.setAttribute('aria-pressed',String(!!result));star.setAttribute('aria-label',`${result?'取消收藏':'收藏完整路径'}：${p.nodes.find(node=>node.id===id)?.title||''}`);}
+      if(!result||showShelf)drawShelf();
+      updatePull();
       if(result){
         if(!showShelf)toggleShelf();
         const cards=$('.saved-cards');if(cards)cards.scrollLeft=cards.scrollWidth;
-        flyToCollection(surface,from,result.id);
+        flyToCollection(from,result.id);
         $('.shelf-pull')?.focus({preventScroll:true});
       }
-      toast(result?'已收藏':'已取消收藏','success',result?'⭐':'');break;
+      toast(result?'已收藏':'已取消收藏');break;
     }
     case'edit':beginInlineEdit(id);break;
     case'cancel-edit':{const id=editing?.id;editing=null;drawGraph();$(`[data-node="${id}"]`)?.focus({preventScroll:true});break;}
@@ -611,7 +618,7 @@ function dispatch(action,el){
     }
   }}catch(error){toast(error.message,'error');}
 }
-function modalShell(title,body,footer='',wide=false,symbol=''){return `<div class="modal-backdrop"><section class="modal ${wide?'modal-wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header class="modal-header"><div><span class="modal-eyebrow">有点想法</span><h2>${symbol?emoji(symbol):''}${esc(title)}</h2></div>${iconButton('关闭','close-modal','',{symbol:'×'})}</header>${body}${footer?`<footer class="modal-footer">${footer}</footer>`:''}</section></div>`;}
+function modalShell(title,body,footer='',wide=false,compactHeader=false){return `<div class="modal-backdrop"><section class="modal ${wide?'modal-wide':''} ${compactHeader?'modal-compact-header':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header class="modal-header"><div>${compactHeader?'':'<span class="modal-eyebrow">有点想法</span>'}<h2>${esc(title)}</h2></div>${iconButton('关闭','close-modal','',{symbol:'×'})}</header>${body}${footer?`<footer class="modal-footer">${footer}</footer>`:''}</section></div>`;}
 function pathMarkup(snapshot){return snapshot.paths.map(path=>`<ol class="detail-path">${path.map(id=>{const n=snapshot.nodes.find(n=>n.id===id);return n?`<li>${chip(n.kind)}<strong>${esc(n.title)}</strong><p>${esc(n.rationale||'最初的想法')}</p></li>`:'';}).join('')}</ol>`).join('');}
 const motionDuration=value=>matchMedia('(prefers-reduced-motion: reduce)').matches?0:value;
 function releaseDirection(state){state?.flightAnimation?.cancel();state?.turnAnimation?.cancel();state?.source?.classList.remove('is-in-flight');}
@@ -645,14 +652,13 @@ function openModal(kind,data=null){
   menu=null;fanPinned=null;drawNodePanel();
   if(kind==='saved-detail'){openDirection(data);return;}
   lastFocus=document.activeElement;modal={kind,data};let body='',footer='',title='',wide=false;
-  const headingEmoji={'new-project':'🌱','open-projects':'📂',share:'💌'}[kind]||'';
   if(kind==='open-projects'){
     title='打开项目';wide=true;
-    body=`<div class="project-picker">${projects.length?`<div class="project-picker-grid">${projects.map(project=>`<article class="project-card"><button class="project-open" data-action="open-project" data-id="${project.id}"><span class="project-card-icon">${emoji('🌱')}</span><h3>${esc(project.title)}</h3><p>${esc(project.description)}</p><footer><span>${project.nodes.length} 张卡片</span><time>${new Date(project.updatedAt).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</time></footer></button><button class="project-delete" data-action="delete-project" data-id="${project.id}" aria-label="删除项目 ${esc(project.title)}">×</button></article>`).join('')}</div>`:'<p class="picker-empty">暂无项目</p>'}</div>`;
+    body=`<div class="project-picker">${projects.length?`<div class="project-picker-grid">${projects.map(project=>`<article class="project-card"><button class="project-open" data-action="open-project" data-id="${project.id}"><h3>${esc(project.title)}</h3><p>${esc(project.description)}</p><footer><span>${project.nodes.length} 张卡片</span><time>${new Date(project.updatedAt).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</time></footer></button><button class="project-delete" data-action="delete-project" data-id="${project.id}" aria-label="删除项目 ${esc(project.title)}">×</button></article>`).join('')}</div>`:'<p class="picker-empty">暂无项目</p>'}</div>`;
     footer=button('从文件打开','import',{icon:'file'})+button('关闭','close-modal');
   }
   if(kind==='new-project'){
-    title='新建探索';body=`<form id="new-project-form"><label class="field"><span>选题内容</span><textarea id="project-description" rows="5" maxlength="2000" required ></textarea></label><label class="field"><span>项目名称 <em>选填</em></span><input id="project-name" maxlength="50" ></label><div class="form-actions">${button('取消','close-modal')}<button type="submit" class="button primary">创建 ${icon('arrow')}</button></div></form>`;
+    title='新建探索';body=`<form id="new-project-form"><label class="field"><span>选题内容</span><textarea id="project-description" rows="5" maxlength="2000" placeholder="请简单描述你的选题内容，一两句话也可以。" required></textarea></label><label class="field"><span>项目名称 <em>选填</em></span><input id="project-name" maxlength="50" ></label><div class="form-actions">${button('取消','close-modal')}<button type="submit" class="button primary">创建 ${icon('arrow')}</button></div></form>`;
   }
   if(kind==='model'&&(model.managed||modelRuntime.managed)){
     title='AI 服务';body=`<div class="original-idea"><strong>${model.mode==='live'?esc(model.model):'暂未连接'}</strong></div>`;footer=button('重新连接','refresh-model')+button('关闭','close-modal',{class:'primary'});
@@ -688,7 +694,7 @@ function openModal(kind,data=null){
   if(kind==='delete-node'||kind==='delete-project'){
     title=kind==='delete-node'?'删除这条分支？':'删除这个项目？';body='';footer=button('取消','close-modal')+`<button class="button destructive" id="confirm-delete">确认删除</button>`;
   }
-  overlays.innerHTML=modalShell(title,body,footer,wide,headingEmoji);bindModal(kind,data);requestAnimationFrame(()=>($('.modal input,.modal textarea')||$('.modal button'))?.focus());
+  overlays.innerHTML=modalShell(title,body,footer,wide,['new-project','open-projects'].includes(kind));bindModal(kind,data);requestAnimationFrame(()=>($('.modal input,.modal textarea')||$('.modal button'))?.focus());
 }
 function closeModal(){if(modal?.kind==='saved-detail'){closeDirection(modal);return;}if(modal?.kind==='model')queuedAfterModel=null;modal=null;overlays.innerHTML='';if(lastFocus?.isConnected)lastFocus.focus();else if(screen==='workspace')(showShelf?$('.shelf-pull'):$('#surface'))?.focus({preventScroll:true});}
 function bindModal(kind,data){
