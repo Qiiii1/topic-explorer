@@ -369,9 +369,9 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 #nodes .kind-idea .card-surface h3{color:#435b6b}
 #nodes .idea-card .inspiration-summary{color:#6b7788}
 
-/* A broad optical rim: lit outer edge, darker inner lip, and brighter corners. */
-#nodes .idea-card.kind-root .card-surface{border:1px solid #fff4dfd9;box-shadow:0 9px 24px #a86d2c21,0 1px 2px #fff8e6b3,0 0 0 1px #cfa36a26,0 2px 4px #ffffffad inset,0 -3px 6px #b87f3c33 inset}
-#nodes .idea-card.kind-root .card-surface::before{inset:0;border:0;border-radius:inherit;padding:5px;background:radial-gradient(ellipse at 0 0,#fffffffa,transparent 48%),radial-gradient(ellipse at 100% 100%,#ffedc7cc,transparent 48%),linear-gradient(140deg,#ffffffd9 0%,#fff0ce80 24%,#b58a5159 50%,#ffffffa6 77%,#f8d8a985 100%);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;opacity:.95;pointer-events:none}
-#nodes .idea-card.kind-root .card-surface::after{content:'';position:absolute;inset:5px;border-radius:18px;border:1px solid #b7894b33;border-top-color:#ffffffad;border-left-color:#ffffff80;box-shadow:0 1px 2px #ffffff70;pointer-events:none}
-#nodes .idea-card.kind-root.is-upstream:not(.is-selected) .card-surface{border-color:#fff4dfd9;box-shadow:0 9px 24px #a86d2c21,0 1px 2px #fff8e6b3,0 0 0 1px #cfa36a26,0 2px 4px #ffffffad inset,0 -3px 6px #b87f3c33 inset}
-#nodes .idea-card.kind-root.is-selected .card-surface{border:3px solid #007aff;box-shadow:0 0 0 5px #007aff1c,0 9px 26px #007aff16,0 2px 4px #ffffffad inset}
+/* A clean illuminated edge, without nested frames or metallic shading. */
+#nodes .idea-card.kind-root .card-surface{border:1px solid #fff8e8;box-shadow:0 0 0 2px #fff0d685,0 0 14px #ffd49a40,0 8px 20px #9a6c321a,0 1px 0 #ffffffd9 inset,0 -1px 0 #e6b97e59 inset}
+#nodes .idea-card.kind-root .card-surface::before{inset:0;border:0;border-radius:inherit;padding:0;background:linear-gradient(145deg,#ffffff33,transparent 45%);-webkit-mask:none;mask:none;opacity:1;pointer-events:none}
+#nodes .idea-card.kind-root .card-surface::after{content:none}
+#nodes .idea-card.kind-root.is-upstream:not(.is-selected) .card-surface{border-color:#fff8e8;box-shadow:0 0 0 2px #fff0d685,0 0 14px #ffd49a40,0 8px 20px #9a6c321a,0 1px 0 #ffffffd9 inset}
+#nodes .idea-card.kind-root.is-selected .card-surface{border:3px solid #007aff;box-shadow:0 0 0 5px #007aff1c,0 9px 26px #007aff16,0 1px 0 #ffffffd9 inset}
