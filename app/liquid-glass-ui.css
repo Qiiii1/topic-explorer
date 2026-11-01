@@ -269,3 +269,10 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .modal-compact-header .form-actions .button.primary:active{transform:scale(.98)}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal.modal-compact-header{background:#f9fbff;backdrop-filter:none;-webkit-backdrop-filter:none}.modal-compact-header .field input,.modal-compact-header .field textarea{background:#fff}.modal-compact-header .form-actions .button.primary{background:#e1e6f6;color:#35466d;backdrop-filter:none;-webkit-backdrop-filter:none}}
 @media(prefers-reduced-motion:reduce){.modal-compact-header .form-actions .button.primary{transition:none}}
+
+/* A quieter, more opaque glass surface with a single lavender action tint. */
+.modal.modal-compact-header{background:linear-gradient(135deg,#ffffffe0,#f8faffd6 60%,#ffffffdf) padding-box,linear-gradient(130deg,#dcd6ee80,#ffffffb3 28%,#d4e9e680 55%,#f0ded87a 78%,#eadded80) border-box}
+.modal-compact-header .field input,.modal-compact-header .field textarea{background:#ffffff8c}
+.modal-compact-header .form-actions .button.primary{color:#675583;background:linear-gradient(145deg,#eee7f8cc,#ddd1eea6);box-shadow:0 5px 16px #71608712,0 1px 0 #ffffffed inset,0 -1px 0 #b9a6ce47 inset}
+.modal-compact-header .form-actions .button.primary:hover{color:#5c4978;background:linear-gradient(145deg,#eee7f8ed,#ddd1eec9);box-shadow:0 7px 20px #7160871a,0 1px 0 #fff inset}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal.modal-compact-header{background:#f9fbff}.modal-compact-header .field input,.modal-compact-header .field textarea{background:#fff}.modal-compact-header .form-actions .button.primary{background:#e7def2;color:#53406e}}
