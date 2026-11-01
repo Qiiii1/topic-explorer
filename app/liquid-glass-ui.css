@@ -239,3 +239,13 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 /* The saved card itself flies and remains in its hanging slot after landing. */
 .saved-card.collection-flight{z-index:90;pointer-events:none!important;transition:none;will-change:transform;backface-visibility:hidden}
 .collection-slot{flex:none;visibility:hidden;pointer-events:none}
+
+/* Home actions use the same cool, softly raised glass as the canvas toolbar. */
+.home-launcher .launch-button{position:relative;isolation:isolate;color:#4c6585;border:1px solid #ffffffd9;background:linear-gradient(145deg,#ffffffa6,#ffffff52 55%,#f2f7ff70);box-shadow:0 12px 30px #213c5b12,0 3px 8px #213c5b09,0 1px 0 #fff inset,0 -1px 0 #c1d4eb40 inset;backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);transition:transform 180ms,box-shadow 180ms,background 180ms}
+.home-launcher .launch-button::before{content:'';position:absolute;inset:4px;border-radius:13px;border:1px solid #ffffff70;background:linear-gradient(135deg,#ffffff38,transparent 55%);z-index:-1;pointer-events:none}
+.home-launcher .launch-new{color:#416a9b}
+.home-launcher .launch-button:hover{background:linear-gradient(145deg,#ffffffd9,#ffffff85 55%,#f2f7ffa6);box-shadow:0 16px 36px #213c5b19,0 4px 10px #213c5b0c,0 1px 0 #fff inset,0 -1px 0 #c1d4eb40 inset;transform:translateY(-2px)}
+.home-launcher .launch-button:active{transform:translateY(0) scale(.98);box-shadow:0 4px 12px #213c5b12,0 1px 0 #fff inset}
+.home-launcher .launch-button:focus-visible{outline:3px solid #007aff;outline-offset:5px}
+@media(prefers-reduced-motion:reduce){.home-launcher .launch-button{transition:none}}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.home-launcher .launch-button{background:#f7faff;backdrop-filter:none;-webkit-backdrop-filter:none;border-color:#c6d3e4}}
