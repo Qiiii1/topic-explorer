@@ -297,3 +297,23 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .modal-compact-header .project-picker .project-card{border:1px solid transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(125deg,#d5c9e7,#cddfdf 52%,#ead7c8) border-box}
 .modal-compact-header .project-picker .project-card:hover{border-color:transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(125deg,#c9b9df,#bdd5d5 52%,#e3cbb9) border-box}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .project-picker .project-card{border-color:#b4c3d8;background:#fff}}
+
+/* Canvas cards: soft brand-tinted glass with clear stage colours. */
+#nodes .kind-root{--card-tint:#e8f0fc;--card-border:#bdcfe9;--card-ink:#5276a6}
+#nodes .kind-direction,#nodes .kind-scene{--card-tint:#f1eafa;--card-border:#d6c7e9;--card-ink:#8060ae}
+#nodes .kind-idea,#nodes .kind-people{--card-tint:#e7f6f1;--card-border:#bfddd5;--card-ink:#388a80}
+#nodes .kind-idea.is-subidea,#nodes .kind-pain{--card-tint:#fcf0e2;--card-border:#e9d3b9;--card-ink:#a37945}
+#nodes .idea-card .card-surface{background:linear-gradient(145deg,#ffffffbf,#ffffff40 55%,#ffffff66),var(--card-tint);border-color:var(--card-border);box-shadow:0 6px 18px #3449690d,0 2px 5px #34496906,0 1px 0 #ffffffed inset,0 -1px 0 #ffffff80 inset;color:#293c55}
+#nodes .idea-card .card-surface::before{content:'';position:absolute;inset:3px;border:1px solid #ffffff80;border-bottom-color:#ffffff33;border-radius:12px;pointer-events:none;background:linear-gradient(140deg,#ffffff33,transparent 50%)}
+#nodes .idea-card.kind-root .card-surface{border-radius:23px}
+#nodes .idea-card.kind-root .card-surface::before{border-radius:19px}
+#nodes .idea-card .card-top .type-chip,#nodes .kind-root .card-more{color:var(--card-ink)}
+#nodes .idea-card .type-chip{background:transparent}
+#nodes .idea-card .card-surface h3{color:#293c55}
+#nodes .kind-root .card-surface p,#nodes .kind-root .inline-editor label{color:#607593}
+#nodes .kind-root .inline-edit-actions .button:not(.primary){color:#526b8c;background:#ffffff66}
+#nodes .idea-card.is-upstream .card-surface{border-color:#9cbfe5;box-shadow:0 0 0 2px #007aff0c,0 6px 18px #3449690d,0 1px 0 #fff inset}
+#nodes .idea-card.is-child:not(.is-selected) .card-surface{border-color:#6fa9dc;box-shadow:0 0 0 4px #71b5ef16,0 7px 20px #335a8515,0 1px 0 #fff inset}
+#nodes .idea-card.is-selected .card-surface{border-color:#007aff;box-shadow:0 0 0 5px #007aff1c,0 9px 26px #007aff16,0 1px 0 #fff inset}
+#nodes .idea-card.is-connecting.valid-target .card-surface{border-color:#62a4ff;box-shadow:0 0 0 5px #007aff20,0 10px 24px #007aff15}
+#nodes .idea-card.is-connecting.drop-target .card-surface{border-color:#007aff;box-shadow:0 0 0 8px #007aff30,0 12px 28px #007aff20}
