@@ -351,7 +351,7 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 
 /* Uniform frosted glass, with tonal text and no internal glow. */
 #nodes .kind-root{--glow-main:#f7ad59;--glow-light:#ffe5ad;--glass-body:#ffd09a}
-#nodes .kind-direction,#nodes .kind-scene{--glow-main:#b398e5;--glow-light:#e5d5f5;--glass-body:#d9c6ee}
+#nodes .kind-direction,#nodes .kind-scene{--glow-main:#b398e5;--glow-light:#e5d5f5;--glass-body:#decef1}
 #nodes .kind-idea,#nodes .kind-idea.is-subidea{--glow-main:#b6d9e5;--glow-light:#e1f1f5;--glass-body:#d6eaf2}
 #nodes .kind-people{--glow-main:#aed39d;--glow-light:#e4f1dc;--glass-body:#deedcf}
 #nodes .kind-pain{--glow-main:#f2c18e;--glow-light:#ffe8cc;--glass-body:#ffe0bc}
