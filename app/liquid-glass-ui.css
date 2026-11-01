@@ -249,3 +249,7 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .home-launcher .launch-button:focus-visible{outline:3px solid #007aff;outline-offset:5px}
 @media(prefers-reduced-motion:reduce){.home-launcher .launch-button{transition:none}}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.home-launcher .launch-button{background:#f7faff;backdrop-filter:none;-webkit-backdrop-filter:none;border-color:#c6d3e4}}
+
+.modal-compact-header .modal-header{align-items:center}
+.modal-compact-header .modal-header h2{margin:0}
+.modal-compact-header .modal-header .icon-button{margin-top:0;flex:none}
