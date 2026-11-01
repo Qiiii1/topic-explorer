@@ -349,12 +349,16 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .dimension-option::after{background:linear-gradient(150deg,#ffffff26,transparent 55%)}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.dimension-option{backdrop-filter:none;-webkit-backdrop-filter:none}.dimension-option.type-people{background:#f1f7ef}.dimension-option.type-pain{background:#fff3e6}.dimension-option.type-scene{background:#f3edf9}}
 
-/* Related hues give luminous gradients without mixing complementary colours. */
-#nodes .kind-root{--glow-main:#ffbe78;--glow-light:#ffe7b5}
-#nodes .kind-direction,#nodes .kind-scene{--glow-main:#e1d3f4;--glow-light:#f2eafb}
-#nodes .kind-idea,#nodes .kind-idea.is-subidea{--glow-main:#e9e6f5;--glow-light:#f7f5fc}
-#nodes .kind-people{--glow-main:#e1eed9;--glow-light:#f3f8ee}
-#nodes .kind-pain{--glow-main:#ffe2c1;--glow-light:#fff4e6}
-#nodes .idea-card .card-surface{background:radial-gradient(ellipse 100% 110% at 85% 100%,color-mix(in srgb,var(--glow-main) var(--stage-colour,100%),white),transparent 85%),linear-gradient(140deg,#fffffff2,color-mix(in srgb,var(--glow-light) var(--stage-colour,100%),white));box-shadow:0 5px 16px #5362850c,0 1px 0 #ffffffed inset,0 -2px 8px #ffffff66 inset}
-#nodes .idea-card.kind-root .card-surface{background:radial-gradient(ellipse at 85% 100%,#ffbd7bcc,transparent 85%),linear-gradient(140deg,#fff2d6,#ffdaa6)}
-#nodes .idea-card.is-selected .card-surface{box-shadow:0 0 0 5px #007aff1c,0 9px 26px #007aff16,0 1px 0 #ffffffed inset}
+/* Reference-inspired frosted glass with one soft pool of colour per card. */
+#nodes .kind-root{--glow-main:#f7ad59;--glow-light:#ffe5ad;--glass-body:#ffe1b6}
+#nodes .kind-direction,#nodes .kind-scene{--glow-main:#b398e5;--glow-light:#e5d5f5;--glass-body:#eee5f8}
+#nodes .kind-idea,#nodes .kind-idea.is-subidea{--glow-main:#b6d9e5;--glow-light:#e1f1f5;--glass-body:#f0f7f9}
+#nodes .kind-people{--glow-main:#aed39d;--glow-light:#e4f1dc;--glass-body:#f0f7eb}
+#nodes .kind-pain{--glow-main:#f2c18e;--glow-light:#ffe8cc;--glass-body:#fff3e5}
+#nodes .idea-card .card-surface{background:radial-gradient(ellipse 65% 90% at 62% 70%,color-mix(in srgb,var(--glow-main) calc(var(--stage-colour,100%)*.62),transparent),transparent 90%),linear-gradient(140deg,#ffffffa6,color-mix(in srgb,var(--glass-body) var(--stage-colour,100%),white));border-color:color-mix(in srgb,var(--card-border) 65%,#ffffff);box-shadow:0 8px 22px #53628510,0 1px 0 #fffffff0 inset,0 -1px 0 #ffffff85 inset;backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15)}
+#nodes .idea-card.kind-root .card-surface{background:radial-gradient(ellipse 70% 95% at 62% 70%,#f6aa58bf,transparent 90%),linear-gradient(140deg,#fff2d9e6,#ffd8a1d9);border-color:#f0c797}
+#nodes .idea-card .card-surface::before{inset:2px;border:1px solid #ffffff66;border-top-color:#ffffffd9;background:linear-gradient(145deg,#ffffff38,transparent 60%)}
+#nodes .idea-card.is-selected .card-surface{border-color:#007aff;box-shadow:0 0 0 5px #007aff1c,0 9px 26px #007aff16,0 1px 0 #ffffffed inset}
+#nodes .idea-card.is-upstream:not(.is-selected) .card-surface{border-color:#a6c3e5}
+#nodes .idea-card.is-child:not(.is-selected) .card-surface{border-color:#7eaedb}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){#nodes .idea-card .card-surface{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--card-tint)}}
