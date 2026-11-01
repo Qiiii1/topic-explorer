@@ -319,10 +319,10 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 #nodes .idea-card.is-connecting.drop-target .card-surface{border-color:#007aff;box-shadow:0 0 0 8px #007aff30,0 12px 28px #007aff20}
 
 /* Read the three logo panels from right to left: topic, direction, idea. */
-#nodes .kind-root{--card-tint:#ffcd94;--card-border:#e9b77d;--card-ink:#9d6534}
+#nodes .kind-root{--card-tint:#ffbd77;--card-border:#e9a55f;--card-ink:#955b2b}
 #nodes .kind-direction,#nodes .kind-scene{--card-tint:#e5f5f0;--card-border:#c1ded6;--card-ink:#388a80}
 #nodes .kind-idea,#nodes .kind-idea.is-subidea,#nodes .kind-people{--card-tint:#f1eafa;--card-border:#d6c7e9;--card-ink:#8060ae}
-#nodes .idea-card.kind-root .card-surface{background:linear-gradient(145deg,#ffffff70,#ffffff19 55%,#ffffff38),var(--card-tint)}
+#nodes .idea-card.kind-root .card-surface{background:linear-gradient(145deg,#ffffff59,#ffffff0d 55%,#ffffff26),var(--card-tint)}
 #nodes .idea-card.kind-root .card-surface h3{color:#62462d}
 
 #nodes .kind-direction,#nodes .kind-scene{--card-tint:#e3f5f9;--card-border:#bfdee7;--card-ink:#438a9d}
