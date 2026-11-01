@@ -292,3 +292,8 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .modal-compact-header .project-picker .project-card{border:1px solid #cbd5e4;background:#ffffffed;box-shadow:0 7px 18px #30486512,0 2px 5px #30486508,0 1px 0 #ffffffed inset}
 .modal-compact-header .project-picker .project-card:hover{border-color:#aebfd7;background:#fff;box-shadow:0 9px 22px #3048651c,0 1px 0 #fff inset}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .project-picker .project-card{background:#fff;border-color:#b4c3d8}}
+
+/* White project cards with only a faint brand-coloured rim. */
+.modal-compact-header .project-picker .project-card{border:1px solid transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(125deg,#d5c9e7,#cddfdf 52%,#ead7c8) border-box}
+.modal-compact-header .project-picker .project-card:hover{border-color:transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(125deg,#c9b9df,#bdd5d5 52%,#e3cbb9) border-box}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .project-picker .project-card{border-color:#b4c3d8;background:#fff}}
