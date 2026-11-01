@@ -112,7 +112,7 @@ function paintCanvasSelection(nodes=graphNodes()){
   for(const el of $$('.idea-card')){const active=canvasSelection.has(el.dataset.node);el.classList.toggle('is-selected',active);if(el.getAttribute('aria-pressed')!==String(active))el.setAttribute('aria-pressed',String(active));}
   const chosen=nodes.filter(n=>canvasSelection.has(n.id)),box=$('#selection-bounds'),bar=$('#canvas-selection-bar');
   if(box){box.hidden=chosen.length<2;if(!box.hidden){const b=boundsOf(chosen);Object.assign(box.style,{left:b.x-12+'px',top:b.y-12+'px',width:b.width+24+'px',height:b.height+24+'px'});}}
-  if(bar){bar.hidden=chosen.length<2||!!connecting||!!assigning;const count=bar.dataset.count;if(count!==String(chosen.length)){bar.dataset.count=chosen.length;bar.innerHTML=`<span>已选 <strong>${chosen.length}</strong> 张</span>${button('导出选中','export-selection')}${button('取消选择','clear-canvas-selection')}`;}}
+  if(bar){bar.hidden=chosen.length<2||!!connecting||!!assigning;const count=bar.dataset.count;if(count!==String(chosen.length)){bar.dataset.count=chosen.length;bar.innerHTML=`<span>已选 <strong>${chosen.length}</strong> 张</span>${button('导出选中','export-selection')}${button('删除选中','delete-selection',{class:'danger-text'})}${button('取消选择','clear-canvas-selection')}`;}}
 }
 function drawGraph(){
   if(screen!=='workspace'||!p)return;
@@ -453,7 +453,7 @@ document.addEventListener('pointerup',event=>{
     }else selectNode(old.id,old.additive);
   }
   if(old.type==='pick'&&!old.moved)selectNode(old.id);
-  if(old.type==='marquee'){$('#marquee').hidden=true;$('#surface').classList.remove('is-marquee');if(!old.moved)setCanvasSelection(old.base);drawGraph();}
+  if(old.type==='marquee'){$('#marquee').hidden=true;$('#surface').classList.remove('is-marquee');if(!old.moved)setCanvasSelection(old.base);drawGraph();$('#surface')?.focus({preventScroll:true});}
   if(old.type==='pan'&&!old.moved){if(!event.target.closest('[data-node],[data-edge]')){menu=null;fanPinned=null;$$('.fan-pinned').forEach(el=>el.classList.remove('fan-pinned'));drawNodePanel();}}
   if(old.type==='link'){$('#link-preview').innerHTML='';const target=document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-node]');if(old.moved){connecting=null;drawGraph();if(target&&target.dataset.node!==old.id)combine(old.id,target.dataset.node);}else{connecting=old.id;drawGraph();}}
 });
@@ -476,6 +476,18 @@ document.addEventListener('click',event=>{
   const edge=event.target.closest('[data-edge]');if(edge){const e=p.edges.find(v=>v.id===edge.dataset.edge);openModal('edge',e);}
 });
 document.addEventListener('change',event=>{if(event.target.matches('[data-saved-check]')){const id=event.target.dataset.savedCheck;event.target.checked?savedSelection.add(id):savedSelection.delete(id);drawShelf();}});
+function deleteCanvasSelection(){
+  if(screen!=='workspace'||modal||showShelf||!canvasSelection.size)return;
+  if(pending||editing){toast('请先完成或取消当前生成与编辑。');return;}
+  if(drag)cancelCanvasDrag();
+  finishCardMotion();stopLayoutAnimation();
+  let removed;commit(()=>{removed=removeSelectedNodes(p,[...canvasSelection]);});
+  if(focusId&&removed.has(focusId))focusId=null;
+  menu=null;fanPinned=null;connecting=null;assigning=null;
+  setCanvasSelection([...canvasSelection].filter(id=>!removed.has(id)));drawGraph();
+  $('#surface')?.focus({preventScroll:true});
+  toast(removed.size?`已删除 ${removed.size} 张卡片，未选中的卡片已保留。`:'最初的题目节点会保留。');
+}
 function dispatch(action,el){
   finishCardMotion();
   if(pending&&['arrange','undo','redo','assign','count'].includes(action))return toast('正在为新卡片留出空间，生成完成后即可调整布局。');
@@ -535,6 +547,7 @@ function dispatch(action,el){
     case'return-to-card':closeModal();showShelf=false;renderWorkspace();selectOnly(id);drawGraph();centerNode(id);break;
     case'export':openModal('export');break;
     case'export-selection':openModal('export',{scope:'canvas'});break;
+    case'delete-selection':deleteCanvasSelection();break;
     case'clear-canvas-selection':selectOnly(null);drawGraph();break;
     case'export-scope-project':openModal('export',{scope:'project'});break;
     case'export-scope-canvas':openModal('export',{scope:'canvas'});break;
@@ -657,17 +670,8 @@ document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='Enter'&&editing){e.preventDefault();saveInlineEdit();return;}
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'&&screen==='workspace'){e.preventDefault();$('#node-search').focus();return;}
   if(isTextEditing||modal)return;
-  if(screen==='workspace'&&!showShelf&&e.key==='Delete'&&canvasSelection.size){
-    e.preventDefault();
-    if(pending||editing){toast('请先完成或取消当前生成与编辑。');return;}
-    if(drag)cancelCanvasDrag();
-    finishCardMotion();stopLayoutAnimation();
-    let removed;commit(()=>{removed=removeSelectedNodes(p,[...canvasSelection]);});
-    if(focusId&&removed.has(focusId))focusId=null;
-    menu=null;fanPinned=null;connecting=null;assigning=null;
-    setCanvasSelection([...canvasSelection].filter(id=>!removed.has(id)));drawGraph();
-    $('#surface')?.focus({preventScroll:true});
-    toast(removed.size?`已删除 ${removed.size} 张卡片，未选中的卡片已保留。`:'最初的题目节点会保留。');return;
+  if(screen==='workspace'&&!showShelf&&canvasSelection.size&&(e.key==='Delete'||e.key==='Backspace'||e.code==='Delete')){
+    e.preventDefault();deleteCanvasSelection();return;
   }
 
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='a'&&screen==='workspace'){e.preventDefault();setCanvasSelection(graphNodes().map(n=>n.id));menu=null;fanPinned=null;drawGraph();return;}
