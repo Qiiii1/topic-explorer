@@ -1,0 +1,40 @@
+.home-account{position:absolute;right:32px;top:24px;z-index:2}
+.account-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;padding:6px 14px;border:1px solid #dce1e8;border-radius:14px;background:#ffffffb8;color:#354052;font:500 12px -apple-system,BlinkMacSystemFont,sans-serif;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);cursor:pointer;white-space:nowrap}
+.account-button:hover{background:#fff;border-color:#b6c6da}
+.account-button:focus-visible,.account-modal button:focus-visible{outline:3px solid #007aff;outline-offset:3px}
+.account-avatar{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:28px;height:28px;border-radius:50%;color:#3b5d87;background:#e5edf8;font-size:12px;font-weight:600}
+.account-modal{width:min(430px,100%);background:#fdfdffed;border:1px solid #fff;box-shadow:inset 0 1px 0 #fff,0 25px 80px #25304530;backdrop-filter:blur(38px);-webkit-backdrop-filter:blur(38px)}
+.account-modal .modal-header{margin-bottom:24px}
+.account-modal .modal-header h2{font-size:24px}
+.account-modal .field{margin-bottom:20px}
+.account-modal .field>span{font-size:13px;color:#4a5260}
+.account-modal .field input{min-height:48px;font-size:15px;color:#263247;border:1px solid #dbe0e8;border-radius:12px;background:#ffffffcf}
+.account-modal .field input:focus{outline:2px solid #007aff;outline-offset:2px}
+.account-modal .button{min-height:44px;padding:10px 16px;font-size:14px;border-radius:12px}
+.account-modal .button.primary{color:#fff;background:#007aff;border:1px solid #007aff;box-shadow:0 2px 8px #007aff26}
+.account-modal button:disabled{opacity:.5;cursor:wait}
+.auth-tabs{display:flex;gap:4px;padding:4px;border-radius:14px;background:#e9edf3b0;margin-bottom:24px}
+.auth-tabs .button{flex:1;color:#576171;background:transparent;border:0}
+.auth-tabs .is-active{background:#fff;color:#263247;box-shadow:0 2px 6px #23385512}
+.auth-password{position:relative;display:block}
+.account-modal .auth-password input{padding-right:52px;width:100%}
+.auth-password button{position:absolute;right:3px;top:2px;width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:#526176;cursor:pointer}
+.auth-password svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.6;vertical-align:middle}
+.auth-form-actions{justify-content:space-between;margin-top:26px}
+.auth-form-actions .primary{margin-left:auto;min-width:110px}
+.account-modal .form-error{font-size:13px;line-height:1.6;color:#b32726;padding:10px 12px;background:#fff0ee;border-radius:10px;margin:12px 0;overflow-wrap:anywhere}
+.auth-message{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0 24px;color:#4b5668;text-align:center;overflow-wrap:anywhere}
+.auth-message strong{font-size:17px;color:#27354a}
+.auth-message>span:last-child{font-size:14px}
+.auth-mail-icon{font-size:32px;color:#427ab9}
+.auth-sent-actions{justify-content:center}
+.account-profile{display:flex;align-items:center;gap:12px;overflow-wrap:anywhere;font-size:15px;margin-bottom:24px}
+.account-profile .account-avatar{width:44px;height:44px;font-size:18px}
+.account-quota{display:flex;flex-direction:column;gap:14px;background:#f0f4f9a6;padding:22px;border:1px solid #e1e7ef;border-radius:18px;color:#566278;font-size:13px}
+.account-quota>div{display:flex;align-items:baseline;gap:10px}
+.account-quota strong{font-size:44px;font-weight:600;letter-spacing:-1.5px;line-height:1.1;color:#293d5b}
+.account-quota progress{width:100%;height:6px;border:0;border-radius:10px;overflow:hidden;accent-color:#4383c2;background:#dce5ef}
+.account-quota progress::-webkit-progress-bar{background:#dce5ef}
+.account-quota progress::-webkit-progress-value{background:#4383c2;border-radius:10px}
+.account-quota progress::-moz-progress-bar{background:#4383c2;border-radius:10px}
+@media(max-width:620px){.home-account{right:20px;top:18px}.account-button{gap:5px;padding:5px 9px;font-size:11px}.account-button .account-avatar{width:24px;height:24px}.account-modal{padding:24px}.account-modal .modal-header h2{font-size:23px}.account-profile{font-size:14px}}

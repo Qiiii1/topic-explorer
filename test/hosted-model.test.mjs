@@ -1,10 +1,12 @@
+import {accountEnv,accountFetcher,authenticated,testToken,testUser} from './account-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {handleRequest} from '../cloudflare/worker.js';
+import {handleRequest as rawHandleRequest} from '../cloudflare/worker.js';
 import {createModelRuntime} from '../app/model-runtime.js';
 import {createProject,rootOf,appendGenerated} from '../app/domain.js';
 import {inspirationInput} from '../app/inspiration.js';
 
+function handleRequest(request,env,options={}){return rawHandleRequest(authenticated(request),{...env,...accountEnv},{...options,fetcher:accountFetcher(options.fetcher||fetch)});}
 const origin='https://qiiii1.github.io';
 const env={TOPIC_AI_BASE_URL:'https://model.example/v1',TOPIC_AI_MODEL:'server-model',TOPIC_AI_API_KEY:'test-server-credential',TOPIC_WEB_ORIGINS:origin};
 const card={title:'新的方向',description:'具体体验',rationale:'从来源继续细化'};
@@ -23,7 +25,7 @@ test('托管 API：仅服务端持有凭据，网页不能读出、替换或清�
     return upstream(Array.from({length:10},(_,i)=>({...card,title:card.title+i})));
   };
   const status=await handleRequest(request('/api/status'),env,{fetcher});
-  assert.deepEqual(await status.json(),{managed:true,mode:'live',model:'server-model'});
+  assert.deepEqual(await status.json(),{managed:true,mode:'live',model:'server-model',authRequired:true,accountsReady:true});
   for(const path of ['/api/model','/api/models','/api/model/clear'])assert.equal((await handleRequest(post({apiKey:'attacker-key',baseUrl:'https://attacker.example',model:'attacker-model'},path),env,{fetcher})).status,403);
   for(const count of [3,6,10]){
     const result=await handleRequest(post({...input,count,model:'attacker-model',baseUrl:'https://attacker.example'}),env,{fetcher});
@@ -71,9 +73,9 @@ test('托管 API：复用最新灵感协议，支持方向、方案和子方案�
 });
 
 test('网页运行时：只请求托管 API，不接收模型密钥；配置缺失或网络失败不回退浏览器直连',async()=>{
-  const calls=[],client=createModelRuntime({hosted:true,apiBase:'https://api.example',fetcher:async(url,options)=>{calls.push({url,options});return handleRequest(new Request(url,{...options,headers:{...options.headers,Origin:origin}}),env,{fetcher:async()=>upstream([card])});}});
+  const calls=[],client=createModelRuntime({hosted:true,apiBase:'https://api.example',credential:async()=>({token:testToken,userId:testUser.id}),fetcher:async(url,options)=>{calls.push({url,options});return handleRequest(new Request(url,{...options,headers:{...options.headers,Origin:origin}}),env,{fetcher:async()=>upstream([card])});}});
   assert.equal((await client.request('/status')).managed,true);assert.equal((await client.request('/generate',input)).nodes.length,1);
-  assert.equal(calls[1].url,'https://api.example/api/generate');assert.equal(calls[1].options.credentials,'omit');assert.doesNotMatch(JSON.stringify(calls),/test-server-credential|Authorization/);
+  assert.equal(calls[1].url,'https://api.example/api/generate');assert.equal(calls[1].options.credentials,'omit');assert.doesNotMatch(JSON.stringify(calls),/test-server-credential|sb_secret_test/);
   await assert.rejects(client.request('/model',{apiKey:'not-accepted'}),/站点管理/);assert.equal(calls.length,2);
   const missing=createModelRuntime({hosted:true,fetcher:()=>assert.fail('未配置不得发送请求')});assert.equal((await missing.request('/status')).mode,'unconfigured');await assert.rejects(missing.request('/generate',input),/暂未连接/);
   const offline=createModelRuntime({hosted:true,apiBase:'https://api.example',fetcher:async()=>{throw new Error('offline');}});await assert.rejects(offline.request('/status'),/暂时无法连接/);

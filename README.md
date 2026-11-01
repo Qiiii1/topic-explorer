@@ -76,7 +76,7 @@ npm run start:env
 - 选区导出只包含所选卡片和内部连线，不附带未选中的来源、收藏或项目背景；选区 JSON 可以重新导入为新的探索，缺少原选题中心时会创建新的中心。
 - 分享链接包含当前项目副本。在线版可直接跨设备打开；本地版接收者需要能够访问同一个服务，也可以交换 JSON 文件。
 
-本版没有登录、云同步、多人实时协作、论文检索或研究创新性判断。生成结果作为待调研假设使用。
+托管版支持邮箱账号和每账号一次性 30 次免费生成；配置步骤见 [账号部署](docs/accounts.md)。项目内容保存在浏览器，不随账号同步。本地 Node 开发版继续使用本机模型配置。生成结果作为待调研假设使用。
 
 ## 梳理模式与灵感模式
 
@@ -117,6 +117,10 @@ npm run build:pages
 该命令将浏览器版输出到 `dist/`，不包含 Node 服务、测试、参考资料、环境变量或密钥。相对资源路径支持 GitHub Pages 的 `/topic-explorer/` 项目子目录。
 
 推送 `main` 后，`.github/workflows/pages.yml` 会检查、构建并发布到 GitHub Pages；部署状态见 [Publish website](https://github.com/Qiiii1/topic-explorer/actions/workflows/pages.yml)。仓库的 Settings → Pages 使用 GitHub Actions，无需设置模型密钥或其他部署 Secrets。
+
+## 邮箱账号与生成额度
+
+右上角为登录 / 注册和账号剩余次数，不再显示模型服务设置。邮箱密码与验证、恢复由 Supabase Auth 管理，Cloudflare 每次验证登录身份后，通过服务端数据库函数管理 30 次额度。成功生成一批扣 1 次，失败、取消、空交集不扣；重复请求按账号和请求标识去重。数据库只存账号 ID、次数和请求状态，不存画布、提示词或生成卡片。部署和管理员查询见 [docs/accounts.md](docs/accounts.md)。
 
 ## License
 
