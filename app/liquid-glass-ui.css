@@ -326,3 +326,10 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 #nodes .idea-card.kind-root .card-surface h3{color:#62462d}
 
 #nodes .kind-direction,#nodes .kind-scene{--card-tint:#e3f5f9;--card-border:#bfdee7;--card-ink:#438a9d}
+
+/* Fade chromatic surfaces by actual graph depth; keep type and selection readable. */
+#nodes .idea-card:not(.kind-root) .card-surface{background:linear-gradient(145deg,#ffffffbf,#ffffff40 55%,#ffffff66),color-mix(in srgb,var(--card-tint) var(--stage-colour,100%),white);border-color:color-mix(in srgb,var(--card-border) var(--stage-colour,100%),#e2e6ec)}
+#nodes .idea-card:not(.kind-root) .card-edit,#nodes .idea-card:not(.kind-root) .node-expand{background:color-mix(in srgb,var(--card-ink) calc(var(--stage-colour,100%)*.13),white);border-color:color-mix(in srgb,var(--card-border) var(--stage-colour,100%),#e2e6ec)}
+#nodes .idea-card.is-upstream .card-surface{border-color:#9cbfe5}
+#nodes .idea-card.is-child:not(.is-selected) .card-surface{border-color:#6fa9dc}
+#nodes .idea-card.is-selected .card-surface,#nodes .idea-card.is-connecting.drop-target .card-surface{border-color:#007aff}
