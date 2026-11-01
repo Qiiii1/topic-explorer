@@ -28,7 +28,7 @@ const STORAGE='topic-explorer-projects-v1';
 let projects=[];try{projects=JSON.parse(localStorage.getItem(STORAGE)||'[]').flatMap(value=>{try{return [validateProject(value)];}catch{return [];}});}catch{projects=[];}
 let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,assigning=null,connecting=null,pending=null,search='',query='',editing=null,branchMenu=false,modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},savedSelection=new Set(),savedMultiSelect=false,drag=null,spaceHeld=false;
 let lastFocus=null,saveTimer=null,queuedAfterModel=null,fanPinned=null,cordDrag=null,suppressCordClick=false;
-let cardMotion=null,layoutAnimation=null,canvasSelection=new Set();
+let cardMotion=null,layoutAnimation=null,canvasSelection=new Set(),collectionFlight=null;
 const app=$('#app'),overlays=$('#overlays');
 
 function persist(){
@@ -67,9 +67,11 @@ function header(){return `<header class="app-header">
   </div></header>`;}
 function render(){if(screen==='home')renderHome();else renderWorkspace();updateModelBadge();}
 function renderHome(){
+  cancelCollectionFlight();
   screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="home-launch-content"><img class="home-brand-logo" src="./assets/brand/logo.svg" alt="有点想法" width="196" height="131"><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project">${emoji('🌱')}<span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects">${emoji('📂')}<span>打开项目</span></button></div></div></main>`;
 }
 function renderWorkspace(){
+  cancelCollectionFlight();
   app.innerHTML=header()+`<main class="workspace ${isInspiration()?'inspiration-workspace':''} ${showShelf?'with-shelf':''} ${showOutline?'with-outline':''}">
     <button class="collection-backdrop ${showShelf?'is-open':''}" data-action="shelf" aria-label="收起收藏栏" tabindex="-1" ${showShelf?'':'inert'}></button>
     <section class="shelf ${showShelf?'is-open':''}" id="shelf" aria-label="收藏的方向" ${showShelf?'':'inert'}></section>
@@ -207,13 +209,46 @@ function updatePull(){
   const workspace=$('.workspace');if(workspace)for(const child of workspace.children)if(child.id!=='shelf'&&!child.classList.contains('collection-backdrop'))child.inert=showShelf;
 }
 function toggleShelf(){
+  cancelCollectionFlight();
   showShelf=!showShelf;savedSelection.clear();savedMultiSelect=false;fanPinned=null;menu=null;
   $('.workspace')?.classList.toggle('with-shelf',showShelf);
   const backdrop=$('.collection-backdrop');backdrop?.classList.toggle('is-open',showShelf);if(backdrop)backdrop.inert=!showShelf;
   const shelf=$('#shelf');shelf?.classList.toggle('is-open',showShelf);if(shelf)shelf.inert=!showShelf;
   updatePull();drawShelf();drawNodePanel();
 }
+function cancelCollectionFlight(){
+  if(!collectionFlight)return;
+  const state=collectionFlight;collectionFlight=null;
+  state.animation?.cancel();state.copy.remove();
+  state.target.classList.remove('is-collecting');state.target.style.removeProperty('animation');
+}
+function flyToCollection(source,from,savedId){
+  cancelCollectionFlight();
+  const target=$(`[data-saved-card="${savedId}"]`),shelf=$('#shelf');
+  if(!source||!target||!shelf||!motionDuration(1)||!from.width||!from.height)return;
+  // The shelf is still descending. Remove its current translation to measure the landing spot.
+  target.style.animation='none';
+  const rect=target.getBoundingClientRect(),shift=new DOMMatrix(getComputedStyle(shelf).transform).m42;
+  const to={left:rect.left,top:rect.top-shift,width:rect.width,height:rect.height};
+  const copy=document.createElement('div');
+  copy.className=`collection-flight idea-card kind-${source.dataset.kind||'idea'} inspiration-workspace`;
+  copy.setAttribute('aria-hidden','true');copy.inert=true;
+  copy.append(source);
+  copy.querySelectorAll('button,input,textarea,select,[id]').forEach(el=>el.remove());
+  document.body.append(copy);target.classList.add('is-collecting');
+  const transform=(left,top,width,height)=>`translate(${left}px,${top}px) scale(${width/CARD.width},${height/CARD.height})`;
+  const start=transform(from.left,from.top,from.width,from.height),end=transform(to.left,to.top,to.width,to.height);
+  const state={copy,target,animation:null};collectionFlight=state;
+  state.animation=copy.animate([
+    {transform:start,opacity:1,offset:0},
+    {transform:transform((from.left+to.left)/2,Math.max(76,Math.min(from.top,to.top)-36),(from.width+to.width)/2,(from.height+to.height)/2),opacity:1,offset:.55},
+    {transform:end,opacity:1,offset:1}
+  ],{duration:820,easing:'cubic-bezier(.22,.75,.25,1)',fill:'both'});
+  const finish=()=>{if(collectionFlight===state)cancelCollectionFlight();};
+  state.animation.finished.then(finish,finish);
+}
 function drawShelf(){
+  cancelCollectionFlight();
   const shelf=$('#shelf');if(!shelf)return;
   for(const id of savedSelection)if(!p.favorites.some(f=>f.id===id))savedSelection.delete(id);
   if(!p.favorites.length)savedMultiSelect=false;
@@ -521,10 +556,13 @@ function dispatch(action,el){
     case'expand':fanPinned=null;generate(id,el.dataset.kind);break;
     case'expand-same':{const n=p.nodes.find(v=>v.id===id);selectOnly(id);if(isInspiration()){generate(id,inspirationStep(p,n).targetKind);}else if(n.kind==='root'){menu=null;fanPinned=fanPinned===id?null:id;drawGraph();}else generate(id,n.kind);break;}
     case'favorite':{
+      const original=$(`[data-node="${id}"]`),from=original?.getBoundingClientRect(),surface=original?.querySelector('.card-surface')?.cloneNode(true);
+      if(surface)surface.dataset.kind=p.nodes.find(node=>node.id===id)?.kind;
       let result;commit(()=>result=favoriteNode(p,id));drawGraph();
       if(result){
         if(!showShelf)toggleShelf();
         const cards=$('.saved-cards');if(cards)cards.scrollLeft=cards.scrollWidth;
+        flyToCollection(surface,from,result.id);
         $('.shelf-pull')?.focus({preventScroll:true});
       }
       toast(result?'已收藏':'已取消收藏','success',result?'⭐':'');break;
@@ -717,7 +755,7 @@ function printProject(){
   const content=scope.mode!=='canvas'&&p.favorites.length?p.favorites.map(f=>`<article><h2>${esc(f.title)}</h2><p>${esc(f.description)}</p><p>${esc(f.rationale)}</p>${pathMarkup(f.snapshot)}</article>`):nodes.map(n=>`<article><h2>${esc(n.title)}</h2><p>${esc(n.description)}</p><p>${esc(n.rationale)}</p></article>`);
   print.innerHTML=`<h1>${esc(exportTitle())}</h1>${scope.mode==='canvas'?'':`<p>${esc(p.description)}</p>`}${content.join('')}`;document.body.appendChild(print);window.print();
 }
-window.addEventListener('resize',()=>{if(screen==='workspace'){drawNodePanel();if(editing)requestAnimationFrame(positionInlineEditor);}});
+window.addEventListener('resize',()=>{cancelCollectionFlight();if(screen==='workspace'){drawNodePanel();if(editing)requestAnimationFrame(positionInlineEditor);}});
 render();refreshModel();
 if(location.hash.startsWith('#project=')){try{const binary=atob(location.hash.slice(9));const value=JSON.parse(new TextDecoder().decode(Uint8Array.from(binary,c=>c.charCodeAt(0)))),project=validateProject(value);project.id=uid();project.title+=' · 副本';projects.unshift(project);openProject(project);persist();window.history.replaceState(null,'',location.pathname);}catch{toast('分享链接无法打开，可以让对方导出项目文件。','error');}}
 if(new URLSearchParams(location.search).has('demo'))openDemo();
