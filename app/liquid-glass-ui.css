@@ -261,35 +261,12 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .modal-compact-header .modal-header .icon-button{background:#ffffff75;border:1px solid #ffffffbc;box-shadow:0 2px 6px #26375308;color:#8a93a3}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal.modal-compact-header{background:#f9fbff;backdrop-filter:none;-webkit-backdrop-filter:none;border-color:#c6d3e4}.modal-compact-header .field input,.modal-compact-header .field textarea{background:#fff}}
 
-/* Let more of the backdrop through, with a softly tinted glass primary action. */
-.modal.modal-compact-header{background:linear-gradient(135deg,#ffffffb8,#f8faff9c 60%,#ffffffb0) padding-box,linear-gradient(130deg,#dcd6ee80,#ffffffb3 28%,#d4e9e680 55%,#f0ded87a 78%,#eadded80) border-box;backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4)}
-.modal-compact-header .field input,.modal-compact-header .field textarea{background:#ffffff66}
-.modal-compact-header .form-actions .button.primary{color:#526287;border:1px solid #ffffffdb;background:linear-gradient(115deg,#d7c8f38c,#c4e9e29c 55%,#f4d8e18c);border-radius:12px;box-shadow:0 5px 16px #53608012,0 1px 0 #ffffffed inset,0 -1px 0 #b9c5db47 inset;backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);transition:background 180ms,box-shadow 180ms,transform 180ms}
-.modal-compact-header .form-actions .button.primary:hover{color:#46577c;background:linear-gradient(115deg,#d7c8f3b3,#c4e9e2c2 55%,#f4d8e1b3);box-shadow:0 7px 20px #5360801a,0 1px 0 #fff inset;filter:none}
-.modal-compact-header .form-actions .button.primary:active{transform:scale(.98)}
-@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal.modal-compact-header{background:#f9fbff;backdrop-filter:none;-webkit-backdrop-filter:none}.modal-compact-header .field input,.modal-compact-header .field textarea{background:#fff}.modal-compact-header .form-actions .button.primary{background:#e1e6f6;color:#35466d;backdrop-filter:none;-webkit-backdrop-filter:none}}
-@media(prefers-reduced-motion:reduce){.modal-compact-header .form-actions .button.primary{transition:none}}
-
-/* A quieter, more opaque glass surface with a single lavender action tint. */
-.modal.modal-compact-header{background:linear-gradient(135deg,#ffffffe0,#f8faffd6 60%,#ffffffdf) padding-box,linear-gradient(130deg,#dcd6ee80,#ffffffb3 28%,#d4e9e680 55%,#f0ded87a 78%,#eadded80) border-box}
-.modal-compact-header .field input,.modal-compact-header .field textarea{background:#ffffff8c}
-.modal-compact-header .form-actions .button.primary{color:#675583;background:linear-gradient(145deg,#eee7f8cc,#ddd1eea6);box-shadow:0 5px 16px #71608712,0 1px 0 #ffffffed inset,0 -1px 0 #b9a6ce47 inset}
-.modal-compact-header .form-actions .button.primary:hover{color:#5c4978;background:linear-gradient(145deg,#eee7f8ed,#ddd1eec9);box-shadow:0 7px 20px #7160871a,0 1px 0 #fff inset}
-@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal.modal-compact-header{background:#f9fbff}.modal-compact-header .field input,.modal-compact-header .field textarea{background:#fff}.modal-compact-header .form-actions .button.primary{background:#e7def2;color:#53406e}}
-
-/* Restore the original subtle glass opacity; give the lavender action more presence. */
+/* Pearl glass action: brand colour lives in the rim and reflected light. */
 .modal.modal-compact-header{background:linear-gradient(135deg,#ffffffed,#f8fafff0 60%,#ffffffed) padding-box,linear-gradient(130deg,#dcd6eeaa,#ffffffde 28%,#d4e9e6a6 55%,#f0ded8a3 78%,#eaddeda6) border-box;backdrop-filter:blur(30px) saturate(1.25);-webkit-backdrop-filter:blur(30px) saturate(1.25)}
 .modal-compact-header .field input,.modal-compact-header .field textarea{background:#ffffff94}
-.modal-compact-header .form-actions .button.primary{color:#fff;border-color:#ffffffb3;background:linear-gradient(145deg,#aa8bdce8,#8d6bc9e8);box-shadow:0 5px 16px #7955ad26,0 1px 0 #ffffff85 inset,0 -1px 0 #6948a347 inset}
-.modal-compact-header .form-actions .button.primary:hover{color:#fff;background:linear-gradient(145deg,#a180d9f2,#805cc3f2);box-shadow:0 7px 20px #7955ad30,0 1px 0 #ffffff85 inset}
-@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal.modal-compact-header{background:#f9fbff;backdrop-filter:none;-webkit-backdrop-filter:none}.modal-compact-header .field input,.modal-compact-header .field textarea{background:#fff}.modal-compact-header .form-actions .button.primary{background:#8060b5;color:#fff}}
-
-/* Cyan sampled from the middle panel of the supplied logo: #6edae8. */
-.modal-compact-header .form-actions .button.primary{color:#204e5a;border-color:#ffffffb3;background:linear-gradient(145deg,#84e0ecee,#6edae8ee);box-shadow:0 5px 16px #4c9fab26,0 1px 0 #ffffffb3 inset,0 -1px 0 #459eac47 inset}
-.modal-compact-header .form-actions .button.primary:hover{color:#194752;background:linear-gradient(145deg,#79dce9f2,#61cfdef2);box-shadow:0 7px 20px #4c9fab30,0 1px 0 #ffffffb3 inset}
-@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .form-actions .button.primary{background:#6edae8;color:#204e5a}}
-
-/* Warm apricot from the logo stands out gently against the cool glass window. */
-.modal-compact-header .form-actions .button.primary{color:#694026;border-color:#ffffffbd;background:linear-gradient(145deg,#ffc88fee,#fdb877ee);box-shadow:0 5px 16px #bc804226,0 1px 0 #ffffffb3 inset,0 -1px 0 #c58b5147 inset}
-.modal-compact-header .form-actions .button.primary:hover{color:#5d341e;background:linear-gradient(145deg,#ffc183f2,#f5ad69f2);box-shadow:0 7px 20px #bc804230,0 1px 0 #ffffffb3 inset}
-@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .form-actions .button.primary{background:#fdb877;color:#694026}}
+.modal-compact-header .form-actions .button.primary{position:relative;isolation:isolate;overflow:hidden;color:#4d607d;border:1px solid transparent;border-radius:12px;background:linear-gradient(145deg,#ffffffe6,#f4f7fcd9) padding-box,linear-gradient(115deg,#c5b4e6c9,#badfdcc9 52%,#eed0b9c9) border-box;box-shadow:0 5px 14px #52617d16,0 1px 0 #fff inset,0 -1px 0 #c4cddd66 inset;backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);transition:transform 180ms,box-shadow 180ms}
+.modal-compact-header .form-actions .button.primary::before{content:'';position:absolute;inset:1px;border-radius:10px;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 0 0,#cab9eb26,transparent 65%),radial-gradient(ellipse at 100% 100%,#f2c8b526,transparent 65%),linear-gradient(140deg,#ffffff99,transparent 55%)}
+.modal-compact-header .form-actions .button.primary:hover{color:#3d5272;background:linear-gradient(145deg,#fff,#f6f8ffed) padding-box,linear-gradient(115deg,#baa5df,#a9d7d4 52%,#e9c2a6) border-box;box-shadow:0 7px 18px #52617d20,0 1px 0 #fff inset;filter:none;transform:translateY(-1px)}
+.modal-compact-header .form-actions .button.primary:active{transform:translateY(0) scale(.98)}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal.modal-compact-header{background:#f9fbff;backdrop-filter:none;-webkit-backdrop-filter:none}.modal-compact-header .field input,.modal-compact-header .field textarea{background:#fff}.modal-compact-header .form-actions .button.primary{background:#edf2fc;border-color:#aebed6;color:#354b6b;backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){.modal-compact-header .form-actions .button.primary{transition:none}}
