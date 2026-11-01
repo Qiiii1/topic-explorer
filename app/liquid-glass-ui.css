@@ -298,51 +298,34 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .modal-compact-header .project-picker .project-card:hover{border-color:transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(125deg,#c9b9df,#bdd5d5 52%,#e3cbb9) border-box}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .project-picker .project-card{border-color:#b4c3d8;background:#fff}}
 
-/* Canvas cards: soft brand-tinted glass with clear stage colours. */
-#nodes .kind-root{--card-tint:#e8f0fc;--card-border:#bdcfe9;--card-ink:#5276a6}
-#nodes .kind-direction,#nodes .kind-scene{--card-tint:#f1eafa;--card-border:#d6c7e9;--card-ink:#8060ae}
-#nodes .kind-idea,#nodes .kind-people{--card-tint:#e7f6f1;--card-border:#bfddd5;--card-ink:#388a80}
-#nodes .kind-idea.is-subidea,#nodes .kind-pain{--card-tint:#fcf0e2;--card-border:#e9d3b9;--card-ink:#a37945}
-#nodes .idea-card .card-surface{background:linear-gradient(145deg,#ffffffbf,#ffffff40 55%,#ffffff66),var(--card-tint);border-color:var(--card-border);box-shadow:0 6px 18px #3449690d,0 2px 5px #34496906,0 1px 0 #ffffffed inset,0 -1px 0 #ffffff80 inset;color:#293c55}
-#nodes .idea-card .card-surface::before{content:'';position:absolute;inset:3px;border:1px solid #ffffff80;border-bottom-color:#ffffff33;border-radius:12px;pointer-events:none;background:linear-gradient(140deg,#ffffff33,transparent 50%)}
-#nodes .idea-card.kind-root .card-surface{border-radius:23px}
+/* Unified canvas palette: warm topic, lavender directions, near-white ideas. */
+#nodes .kind-root{--card-tint:#ffc990;--card-border:#e8b37d;--card-ink:#996739}
+#nodes .kind-direction,#nodes .kind-scene{--card-tint:#eee8f8;--card-border:#d9cdea;--card-ink:#8568a8}
+#nodes .kind-idea,#nodes .kind-idea.is-subidea{--card-tint:#f2f7fb;--card-border:#dce5ec;--card-ink:#708b9e}
+#nodes .kind-people{--card-tint:#edf5ed;--card-border:#d2e2d1;--card-ink:#648762}
+#nodes .kind-pain{--card-tint:#fcf0e4;--card-border:#ebd7c2;--card-ink:#a67b52}
+#nodes .idea-card .card-surface{background:linear-gradient(145deg,#ffffffad,#ffffff33 60%,#ffffff59),color-mix(in srgb,var(--card-tint) var(--stage-colour,100%),white);border-color:color-mix(in srgb,var(--card-border) var(--stage-colour,100%),#e2e6ec);box-shadow:0 5px 16px #3449690c,0 1px 0 #ffffffed inset,0 -1px 0 #ffffff80 inset;color:#2c3d52}
+#nodes .idea-card .card-surface::before{content:'';position:absolute;inset:3px;border:1px solid #ffffff85;border-bottom-color:#ffffff26;border-radius:12px;pointer-events:none;background:linear-gradient(140deg,#ffffff26,transparent 50%)}
+#nodes .idea-card.kind-root .card-surface{border-radius:23px;background:linear-gradient(145deg,#ffffff59,#ffffff0d 60%,#ffffff26),var(--card-tint);border-color:var(--card-border)}
 #nodes .idea-card.kind-root .card-surface::before{border-radius:19px}
 #nodes .idea-card .card-top .type-chip,#nodes .kind-root .card-more{color:var(--card-ink)}
 #nodes .idea-card .type-chip{background:transparent}
-#nodes .idea-card .card-surface h3{color:#293c55}
-#nodes .kind-root .card-surface p,#nodes .kind-root .inline-editor label{color:#607593}
-#nodes .kind-root .inline-edit-actions .button:not(.primary){color:#526b8c;background:#ffffff66}
-#nodes .idea-card.is-upstream .card-surface{border-color:#9cbfe5;box-shadow:0 0 0 2px #007aff0c,0 6px 18px #3449690d,0 1px 0 #fff inset}
-#nodes .idea-card.is-child:not(.is-selected) .card-surface{border-color:#6fa9dc;box-shadow:0 0 0 4px #71b5ef16,0 7px 20px #335a8515,0 1px 0 #fff inset}
+#nodes .idea-card .card-surface h3{color:#2c3d52}
+#nodes .idea-card.kind-root .card-surface h3{color:#68482c}
+#nodes .kind-root .card-surface p,#nodes .kind-root .inline-editor label{color:#7a654f}
+#nodes .kind-root .inline-edit-actions .button:not(.primary){color:#7a654f;background:#ffffff66}
+#nodes .idea-card:not(.kind-root) .card-edit,#nodes .idea-card:not(.kind-root) .node-expand{background:color-mix(in srgb,var(--card-ink) calc(var(--stage-colour,100%)*.1),white);border-color:color-mix(in srgb,var(--card-border) var(--stage-colour,100%),#e2e6ec)}
+#nodes .idea-card.is-upstream .card-surface{border-color:#a6c3e5;box-shadow:0 0 0 2px #007aff0a,0 5px 16px #3449690c,0 1px 0 #fff inset}
+#nodes .idea-card.is-child:not(.is-selected) .card-surface{border-color:#7eaedb;box-shadow:0 0 0 3px #71b5ef12,0 5px 16px #335a8512,0 1px 0 #fff inset}
 #nodes .idea-card.is-selected .card-surface{border-color:#007aff;box-shadow:0 0 0 5px #007aff1c,0 9px 26px #007aff16,0 1px 0 #fff inset}
 #nodes .idea-card.is-connecting.valid-target .card-surface{border-color:#62a4ff;box-shadow:0 0 0 5px #007aff20,0 10px 24px #007aff15}
 #nodes .idea-card.is-connecting.drop-target .card-surface{border-color:#007aff;box-shadow:0 0 0 8px #007aff30,0 12px 28px #007aff20}
 
-/* Read the three logo panels from right to left: topic, direction, idea. */
-#nodes .kind-root{--card-tint:#ffbd77;--card-border:#e9a55f;--card-ink:#955b2b}
-#nodes .kind-direction,#nodes .kind-scene{--card-tint:#e5f5f0;--card-border:#c1ded6;--card-ink:#388a80}
-#nodes .kind-idea,#nodes .kind-idea.is-subidea,#nodes .kind-people{--card-tint:#f1eafa;--card-border:#d6c7e9;--card-ink:#8060ae}
-#nodes .idea-card.kind-root .card-surface{background:linear-gradient(145deg,#ffffff59,#ffffff0d 55%,#ffffff26),var(--card-tint)}
-#nodes .idea-card.kind-root .card-surface h3{color:#62462d}
-
-#nodes .kind-direction,#nodes .kind-scene{--card-tint:#e3f5f9;--card-border:#bfdee7;--card-ink:#438a9d}
-
-/* Fade chromatic surfaces by actual graph depth; keep type and selection readable. */
-#nodes .idea-card:not(.kind-root) .card-surface{background:linear-gradient(145deg,#ffffffbf,#ffffff40 55%,#ffffff66),color-mix(in srgb,var(--card-tint) var(--stage-colour,100%),white);border-color:color-mix(in srgb,var(--card-border) var(--stage-colour,100%),#e2e6ec)}
-#nodes .idea-card:not(.kind-root) .card-edit,#nodes .idea-card:not(.kind-root) .node-expand{background:color-mix(in srgb,var(--card-ink) calc(var(--stage-colour,100%)*.13),white);border-color:color-mix(in srgb,var(--card-border) var(--stage-colour,100%),#e2e6ec)}
-#nodes .idea-card.is-upstream .card-surface{border-color:#9cbfe5}
-#nodes .idea-card.is-child:not(.is-selected) .card-surface{border-color:#6fa9dc}
-#nodes .idea-card.is-selected .card-surface,#nodes .idea-card.is-connecting.drop-target .card-surface{border-color:#007aff}
-
-/* Swap the lower stages: lavender directions, nearly-white cyan ideas. */
-#nodes .kind-direction,#nodes .kind-scene{--card-tint:#f1eafa;--card-border:#d6c7e9;--card-ink:#8060ae}
-#nodes .kind-idea,#nodes .kind-idea.is-subidea,#nodes .kind-people{--card-tint:#f6fbfc;--card-border:#dee9eb;--card-ink:#73939a}
-
-/* Floating dimension choices share the canvas glass, with much lighter colour. */
-.dimension-option{isolation:isolate;overflow:hidden;border:1px solid #ffffffd9;box-shadow:0 5px 15px #34496908,0 1px 0 #ffffffed inset,0 -1px 0 #ffffff80 inset;backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2)}
-.dimension-option.type-people{background:linear-gradient(145deg,#ffffffb8,#eef8f278);border-color:#d8e8dfb3;color:#598b7b}
-.dimension-option.type-pain{background:linear-gradient(145deg,#ffffffb8,#fff2e578);border-color:#efdfceb3;color:#ad805b}
-.dimension-option.type-scene{background:linear-gradient(145deg,#ffffffb8,#f2eafb78);border-color:#e3d8f0b3;color:#9279b4}
+/* Almost-white floating choices: category colour is an accent, not a solid fill. */
+.dimension-option{isolation:isolate;overflow:hidden;border:1px solid #ffffffd9;box-shadow:0 5px 15px #34496908,0 1px 0 #ffffffed inset,0 -1px 0 #ffffff80 inset;backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15)}
+.dimension-option.type-people{background:linear-gradient(145deg,#ffffffcc,#f0f7ee85);border-color:#d9e6d8b3;color:#6b8b69}
+.dimension-option.type-pain{background:linear-gradient(145deg,#ffffffcc,#fff3e885);border-color:#eedfceb3;color:#aa815c}
+.dimension-option.type-scene{background:linear-gradient(145deg,#ffffffcc,#f4eefa85);border-color:#e1d7ecb3;color:#9278b1}
 .dimension-option::after{content:'';position:absolute;inset:3px;border-radius:inherit;border-top:1px solid #ffffffe6;background:linear-gradient(150deg,#ffffff33,transparent 55%);pointer-events:none;z-index:-1}
-.dimension-option:hover{background:linear-gradient(145deg,#fffffff2,#ffffffa6)!important;box-shadow:0 7px 20px #34496912,0 1px 0 #fff inset!important}
-@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.dimension-option{backdrop-filter:none;-webkit-backdrop-filter:none}.dimension-option.type-people{background:#f1f8f4}.dimension-option.type-pain{background:#fff5eb}.dimension-option.type-scene{background:#f6f0fc}}
+.dimension-option:hover{background:linear-gradient(145deg,#fffffff2,#ffffffb3)!important;box-shadow:0 7px 20px #34496912,0 1px 0 #fff inset!important}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.dimension-option{backdrop-filter:none;-webkit-backdrop-filter:none}.dimension-option.type-people{background:#f0f7ee}.dimension-option.type-pain{background:#fff3e8}.dimension-option.type-scene{background:#f4eefa}}
