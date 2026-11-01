@@ -1,0 +1,46 @@
+name: Verify hosted API
+
+on:
+  push:
+    branches: [main, 'codex/cloudflare-server']
+    paths:
+      - 'cloudflare/**'
+      - 'wrangler.jsonc'
+      - '.github/workflows/verify-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: vars.TOPIC_API_BASE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      API_BASE_URL: ${{ vars.TOPIC_API_BASE_URL }}
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - name: Check public status and GitHub Pages preflight
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          const base=new URL(process.env.API_BASE_URL),origin='https://qiiii1.github.io';
+          assert.equal(base.protocol,'https:');
+          const response=await fetch(new URL('/api/status',base),{headers:{Origin:origin},signal:AbortSignal.timeout(20000)});
+          assert.equal(response.status,200);
+          assert.equal(response.headers.get('Access-Control-Allow-Origin'),origin);
+          const status=await response.json();
+          assert.equal(status.managed,true);
+          assert.ok(['live','unconfigured'].includes(status.mode));
+          console.log(JSON.stringify({managed:status.managed,mode:status.mode}));
+          const preflight=await fetch(new URL('/api/generate',base),{method:'OPTIONS',headers:{Origin:origin,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type'},signal:AbortSignal.timeout(20000)});
+          assert.equal(preflight.status,204);
+          assert.equal(preflight.headers.get('Access-Control-Allow-Origin'),origin);
+          assert.match(preflight.headers.get('Access-Control-Allow-Methods'),/POST/);
+          assert.match(preflight.headers.get('Access-Control-Allow-Headers'),/Content-Type/i);
+          assert.equal(status.mode,'live','Cloudflare model secret/configuration is not ready');
+          console.log('Public API and GitHub Pages CORS are ready. No model request was made.');
+          JS
