@@ -11,7 +11,6 @@ import {editCard,selectionRelations} from './card-editing.js';
 const $=(selector,scope=document)=>scope.querySelector(selector);
 const $$=(selector,scope=document)=>[...scope.querySelectorAll(selector)];
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const emoji=symbol=>`<span class="ui-emoji" aria-hidden="true">${esc(symbol)}</span>`;
 const icons={branch:'git-branch',search:'search',back:'arrow-left',arrow:'arrow-right',scene:'stack-2',pain:'rocket',people:'users',merge:'git-merge',settings:'world-cog',file:'file-text',save:'device-floppy',refresh:'refresh',layers:'stack-2',link:'arrows-split',tag:'tag',lock:'lock'};
 function icon(name,extra=''){
   if(['plus','star','undo','close'].includes(name))return `<img class="source-icon ${extra}" src="./assets/icons/figma-${name}.svg" alt="" aria-hidden="true">`;
@@ -36,9 +35,8 @@ function persist(){
   try{localStorage.setItem(STORAGE,JSON.stringify(projects));}catch{toast('浏览器存储空间不足，请导出项目文件。','error');}
 }
 function commit(change){finishCardMotion();change();persist();}
-function toast(message,type='success',symbol=''){
+function toast(message,type='success'){
   const el=document.createElement('div');el.className=`toast toast-${type}`;
-  if(symbol){const decoration=document.createElement('span');decoration.className='ui-emoji';decoration.setAttribute('aria-hidden','true');decoration.textContent=symbol;el.appendChild(decoration);}
   el.appendChild(document.createTextNode(message));$('#toasts').appendChild(el);setTimeout(()=>el.remove(),type==='error'?6000:3600);
 }
 const isInspiration=()=>p?.explorationMode==='inspiration';
@@ -258,7 +256,7 @@ function drawShelf(){
   const shelf=$('#shelf');if(!shelf)return;
   for(const id of savedSelection)if(!p.favorites.some(f=>f.id===id))savedSelection.delete(id);
   if(!p.favorites.length)savedMultiSelect=false;
-  shelf.innerHTML=`<div class="shelf-heading"><div><h2>${emoji('⭐')} 收藏的方向 <span>${p.favorites.length}</span></h2></div><div>${savedSelection.size?button('导出选中 '+savedSelection.size+' 项','export-saved'):''}${p.favorites.length?button(savedMultiSelect?'完成':'选择导出','saved-select-mode',{extra:`aria-pressed="${savedMultiSelect}"`}):''}</div></div><div class="shelf-rope"></div><div class="saved-cards">${p.favorites.length?p.favorites.map((f,i)=>`<article class="saved-card type-${f.kind}" data-saved-card="${f.id}" style="--turn:${[-1.2,1,-.6,.8][i%4]}deg;--hang-delay:${i*35}ms"><button class="saved-favorite" data-action="remove-saved" data-id="${f.id}" aria-label="取消收藏：${esc(f.title)}" aria-pressed="true" title="取消收藏">${actionGlyph('star')}</button>${savedMultiSelect?`<label class="saved-export-check"><input type="checkbox" data-saved-check="${f.id}" ${savedSelection.has(f.id)?'checked':''} aria-label="选择导出：${esc(f.title)}"><span>选择导出</span></label>`:''}<button class="saved-card-open" data-action="saved-detail" data-id="${f.id}"><span class="saved-kicker">${KINDS[f.kind].label}</span><h3>${esc(f.title)}</h3><p>${esc(f.description)}</p></button></article>`).join(''):'<div class="shelf-empty">还没有收藏</div>'}</div>`;
+  shelf.innerHTML=`<div class="shelf-heading"><div><h2>收藏的方向 <span>${p.favorites.length}</span></h2></div><div>${savedSelection.size?button('导出选中 '+savedSelection.size+' 项','export-saved'):''}${p.favorites.length?button(savedMultiSelect?'完成':'选择导出','saved-select-mode',{extra:`aria-pressed="${savedMultiSelect}"`}):''}</div></div><div class="shelf-rope"></div><div class="saved-cards">${p.favorites.length?p.favorites.map((f,i)=>`<article class="saved-card type-${f.kind}" data-saved-card="${f.id}" style="--turn:${[-1.2,1,-.6,.8][i%4]}deg;--hang-delay:${i*35}ms"><button class="saved-favorite" data-action="remove-saved" data-id="${f.id}" aria-label="取消收藏：${esc(f.title)}" aria-pressed="true" title="取消收藏">${actionGlyph('star')}</button>${savedMultiSelect?`<label class="saved-export-check"><input type="checkbox" data-saved-check="${f.id}" ${savedSelection.has(f.id)?'checked':''} aria-label="选择导出：${esc(f.title)}"><span>选择导出</span></label>`:''}<button class="saved-card-open" data-action="saved-detail" data-id="${f.id}"><span class="saved-kicker">${KINDS[f.kind].label}</span><h3>${esc(f.title)}</h3><p>${esc(f.description)}</p></button></article>`).join(''):'<div class="shelf-empty">还没有收藏</div>'}</div>`;
 }
 function drawOutline(){
   const el=$('#outline');if(!el)return;
@@ -574,7 +572,7 @@ function dispatch(action,el){
         flyToCollection(from,result.id);
         $('.shelf-pull')?.focus({preventScroll:true});
       }
-      toast(result?'已收藏':'已取消收藏','success',result?'⭐':'');break;
+      toast(result?'已收藏':'已取消收藏');break;
     }
     case'edit':beginInlineEdit(id);break;
     case'cancel-edit':{const id=editing?.id;editing=null;drawGraph();$(`[data-node="${id}"]`)?.focus({preventScroll:true});break;}
@@ -623,7 +621,7 @@ function dispatch(action,el){
     }
   }}catch(error){toast(error.message,'error');}
 }
-function modalShell(title,body,footer='',wide=false,symbol=''){return `<div class="modal-backdrop"><section class="modal ${wide?'modal-wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header class="modal-header"><div><span class="modal-eyebrow">有点想法</span><h2>${symbol?emoji(symbol):''}${esc(title)}</h2></div>${iconButton('关闭','close-modal','',{symbol:'×'})}</header>${body}${footer?`<footer class="modal-footer">${footer}</footer>`:''}</section></div>`;}
+function modalShell(title,body,footer='',wide=false){return `<div class="modal-backdrop"><section class="modal ${wide?'modal-wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header class="modal-header"><div><span class="modal-eyebrow">有点想法</span><h2>${esc(title)}</h2></div>${iconButton('关闭','close-modal','',{symbol:'×'})}</header>${body}${footer?`<footer class="modal-footer">${footer}</footer>`:''}</section></div>`;}
 function pathMarkup(snapshot){return snapshot.paths.map(path=>`<ol class="detail-path">${path.map(id=>{const n=snapshot.nodes.find(n=>n.id===id);return n?`<li>${chip(n.kind)}<strong>${esc(n.title)}</strong><p>${esc(n.rationale||'最初的想法')}</p></li>`:'';}).join('')}</ol>`).join('');}
 const motionDuration=value=>matchMedia('(prefers-reduced-motion: reduce)').matches?0:value;
 function releaseDirection(state){state?.flightAnimation?.cancel();state?.turnAnimation?.cancel();state?.source?.classList.remove('is-in-flight');}
@@ -657,14 +655,13 @@ function openModal(kind,data=null){
   menu=null;fanPinned=null;drawNodePanel();
   if(kind==='saved-detail'){openDirection(data);return;}
   lastFocus=document.activeElement;modal={kind,data};let body='',footer='',title='',wide=false;
-  const headingEmoji={'new-project':'🌱','open-projects':'📂',share:'💌'}[kind]||'';
   if(kind==='open-projects'){
     title='打开项目';wide=true;
-    body=`<div class="project-picker">${projects.length?`<div class="project-picker-grid">${projects.map(project=>`<article class="project-card"><button class="project-open" data-action="open-project" data-id="${project.id}"><span class="project-card-icon">${emoji('🌱')}</span><h3>${esc(project.title)}</h3><p>${esc(project.description)}</p><footer><span>${project.nodes.length} 张卡片</span><time>${new Date(project.updatedAt).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</time></footer></button><button class="project-delete" data-action="delete-project" data-id="${project.id}" aria-label="删除项目 ${esc(project.title)}">×</button></article>`).join('')}</div>`:'<p class="picker-empty">暂无项目</p>'}</div>`;
+    body=`<div class="project-picker">${projects.length?`<div class="project-picker-grid">${projects.map(project=>`<article class="project-card"><button class="project-open" data-action="open-project" data-id="${project.id}"><h3>${esc(project.title)}</h3><p>${esc(project.description)}</p><footer><span>${project.nodes.length} 张卡片</span><time>${new Date(project.updatedAt).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</time></footer></button><button class="project-delete" data-action="delete-project" data-id="${project.id}" aria-label="删除项目 ${esc(project.title)}">×</button></article>`).join('')}</div>`:'<p class="picker-empty">暂无项目</p>'}</div>`;
     footer=button('从文件打开','import',{icon:'file'})+button('关闭','close-modal');
   }
   if(kind==='new-project'){
-    title='新建探索';body=`<form id="new-project-form"><label class="field"><span>选题内容</span><textarea id="project-description" rows="5" maxlength="2000" required ></textarea></label><label class="field"><span>项目名称 <em>选填</em></span><input id="project-name" maxlength="50" ></label><div class="form-actions">${button('取消','close-modal')}<button type="submit" class="button primary">创建 ${icon('arrow')}</button></div></form>`;
+    title='新建探索';body=`<form id="new-project-form"><label class="field"><span>选题内容</span><textarea id="project-description" rows="5" maxlength="2000" placeholder="请简单描述你的选题内容，一两句话也可以。" required></textarea></label><label class="field"><span>项目名称 <em>选填</em></span><input id="project-name" maxlength="50" ></label><div class="form-actions">${button('取消','close-modal')}<button type="submit" class="button primary">创建 ${icon('arrow')}</button></div></form>`;
   }
   if(kind==='model'){
     const deepseek=model.provider==='deepseek'||!model.baseUrl||model.baseUrl.includes('api.deepseek.com');
@@ -697,7 +694,7 @@ function openModal(kind,data=null){
   if(kind==='delete-node'||kind==='delete-project'){
     title=kind==='delete-node'?'删除这条分支？':'删除这个项目？';body='';footer=button('取消','close-modal')+`<button class="button destructive" id="confirm-delete">确认删除</button>`;
   }
-  overlays.innerHTML=modalShell(title,body,footer,wide,headingEmoji);bindModal(kind,data);requestAnimationFrame(()=>($('.modal input,.modal textarea')||$('.modal button'))?.focus());
+  overlays.innerHTML=modalShell(title,body,footer,wide);bindModal(kind,data);requestAnimationFrame(()=>($('.modal input,.modal textarea')||$('.modal button'))?.focus());
 }
 function closeModal(){if(modal?.kind==='saved-detail'){closeDirection(modal);return;}if(modal?.kind==='model')queuedAfterModel=null;modal=null;overlays.innerHTML='';if(lastFocus?.isConnected)lastFocus.focus();else if(screen==='workspace')(showShelf?$('.shelf-pull'):$('#surface'))?.focus({preventScroll:true});}
 function bindModal(kind,data){
