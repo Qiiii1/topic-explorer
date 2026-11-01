@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main, 'codex/cloudflare-server']
+    branches: [main, 'codex/cloudflare-server', 'codex/accounts']
   pull_request:
   workflow_dispatch:
 

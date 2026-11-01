@@ -2,6 +2,7 @@ import {inspirationStep,inspirationInput} from './inspiration.js';
 import { KINDS, CARD, uid, clone, createProject, switchExplorationMode, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, mergeNodes, assignParent, favoriteNode, removeBranch, removeSelectedNodes, visibleNodes, boundsOf, validateProject, toMarkdown, planNearbySpace, planGenerationSpace, branchPositions, moveBranch, arrangeByMainline, canCombine, repelCards, spreadCrowdedCards, nodesInRect, selectionExport, importSelection } from './domain.js';
 import { demoGenerate } from './demo.js';
 import {createModelRuntime} from './model-runtime.js';
+import {createAccountClient} from './accounts-client.js';
 import './vendor/liquid-glass/components.js';
 import {wheelIntent,gestureFactor,zoomView} from './canvas-gestures.js';
 import {GenerationHistory} from './generation-history.js';
@@ -22,10 +23,11 @@ const chip=(kind,label=KINDS[kind].label)=>`<span class="type-chip type-${kind}"
 const actionGlyph=name=>`<svg class="action-glyph" viewBox="0 0 24 24" aria-hidden="true">${name==='undo'?'<path d="m9 5-5 5 5 5M4 10h10a5 5 0 0 1 0 10h-3"/>':name==='minus'?'<path d="M5 12h14"/>':name==='star'?'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/>':'<path d="M12 5v14M5 12h14"/>'}</svg>`;
 const glassAction=(label,action,options={})=>`<lg-button class="glass-action ${options.class||''} ${options.iconOnly?'glass-icon-action':''}" tone="light" radius="16" refraction="14" backdrop="#surface" data-action="${action}" ${options.iconOnly?`aria-label="${esc(label)}" title="${esc(options.title||label)}"`:''} ${options.id?`data-id="${esc(options.id)}"`:''} ${options.disabled?'disabled':''} ${options.extra||''}>${options.icon?icon(options.icon):options.glyph?actionGlyph(options.glyph):''}${options.iconOnly?'':label}</lg-button>`;
 const generations=new GenerationHistory();
-const modelRuntime=createModelRuntime({hosted:!!document.querySelector('meta[name="topic-runtime"][content="hosted"]'),apiBase:document.querySelector('meta[name="topic-api-base"]')?.content||''});
+const modelRuntime=createModelRuntime({hosted:!!document.querySelector('meta[name="topic-runtime"][content="hosted"]'),apiBase:document.querySelector('meta[name="topic-api-base"]')?.content||'',credential:async()=>{const client=await ensureAuth();return client.credential();}});
 const STORAGE='topic-explorer-projects-v1';
 let projects=[];try{projects=JSON.parse(localStorage.getItem(STORAGE)||'[]').flatMap(value=>{try{return [validateProject(value)];}catch{return [];}});}catch{projects=[];}
 let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,assigning=null,connecting=null,pending=null,search='',query='',editing=null,branchMenu=false,modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},savedSelection=new Set(),savedMultiSelect=false,drag=null,spaceHeld=false;
+let accountClient=null,accountInit=null,accountRevision=0,account={user:null,quota:null,loading:false};
 let lastFocus=null,saveTimer=null,queuedAfterModel=null,fanPinned=null,cordDrag=null,suppressCordClick=false;
 let cardMotion=null,layoutAnimation=null,canvasSelection=new Set(),collectionFlight=null;
 const app=$('#app'),overlays=$('#overlays');
@@ -49,20 +51,79 @@ function setCanvasSelection(ids,primary=null){
 }
 function selectOnly(id){setCanvasSelection(id?[id]:[],id);}
 function selectedPaths(){try{return getPaths(p,current().id);}catch{return [];}}
-const api=(path,body,signal)=>modelRuntime.request(path,body,signal);
-async function refreshModel(){try{model=await api('/status');if(model.mode==='demo')model.mode='unconfigured';}catch{model={mode:'unconfigured',model:''};}model.managed=!!model.managed||modelRuntime.managed;updateModelBadge();}
-function updateModelBadge(){const el=$('#model-status');if(el){el.innerHTML=`<span class="status-dot ${model.mode==='live'?'connected':''}"></span><span>${model.mode==='live'?esc(model.model):modelRuntime.managed?'AI 暂未连接':'连接 AI'}</span>`;el.title=model.managed?'AI 服务':'模型设置';}}
+async function api(path,body,signal){
+  const owner=account.user?.id;
+  const updateQuota=quota=>{if(path==='/generate'&&quota&&owner&&owner===account.user?.id){account.quota=quota;updateAccountButton();}};
+  try{const result=await modelRuntime.request(path,body,signal);updateQuota(result.quota);return result;}
+  catch(error){updateQuota(error.quota);throw error;}
+}
+async function refreshModel(){try{model=await api('/status');if(model.mode==='demo')model.mode='unconfigured';}catch{model={mode:'unconfigured',model:''};}model.managed=!!model.managed||modelRuntime.managed;}
+function updateModelBadge(){updateAccountButton();}
+function accountButton(){return modelRuntime.managed?'<div class="account-entry"></div>':'';}
+function updateAccountButton(){
+  for(const el of $$('.account-entry')){
+    el.innerHTML=account.user?`<button class="account-button" data-action="account" aria-label="账号与免费次数"><span class="account-avatar" aria-hidden="true">${esc(account.user.email[0].toUpperCase())}</span><span>${account.quota?`剩余 ${account.quota.remaining} 次`:'账号'}</span></button>`:`<button class="account-button" data-action="account">${account.loading?'正在连接…':'登录 / 注册'}</button>`;
+  }
+}
+async function ensureAuth(){
+  if(accountClient)return accountClient;
+  if(!accountInit){
+    account.loading=true;updateAccountButton();
+    accountInit=createAccountClient({api,onError:message=>toast(message,'error'),onChange:authChanged}).then(client=>{accountClient=client;return client;}).catch(error=>{accountInit=null;throw error;}).finally(()=>{account.loading=false;updateAccountButton();});
+  }
+  return accountInit;
+}
+async function authChanged({event,session}){
+  accountRevision++;
+  if(account.user&&account.user.id!==session?.user?.id)pending?.controller.abort();
+  if(!session){account={user:null,quota:null,loading:false};updateAccountButton();return;}
+  if(event==='PASSWORD_RECOVERY'){openModal('auth','reset');}
+  try{await refreshAccount();}
+  catch{/* The login form or account screen displays explicit request failures. */}
+}
+async function refreshAccount(){
+  const revision=++accountRevision;account.loading=true;updateAccountButton();
+  try{const result=await api('/account');if(revision!==accountRevision)return;account={...result,loading:false};updateAccountButton();return result;}
+  catch(error){if(revision===accountRevision){account.loading=false;if(error.status===401||error.status===403)account={user:null,quota:null,loading:false};updateAccountButton();}throw error;}
+}
+async function showAccount(){
+  if(account.loading)return;
+  try{const client=await ensureAuth();if(!await client.credential()){openModal('auth','login');return;}await refreshAccount();openModal('account');}
+  catch(error){if(error.status===401||error.status===403)openModal('auth','login');else toast(error.message,'error');}
+}
+async function generationAllowed(work){
+  if(modelRuntime.managed){
+    try{
+      const client=await ensureAuth();
+      if(!await client.credential()){queuedAfterModel=work;openModal('auth','login');return false;}
+      if(!account.user)await refreshAccount();
+      if(account.quota?.blocked||account.quota?.remaining<=0){openModal('account');return false;}
+    }catch(error){toast(error.message,'error');if(error.status===401||error.status===403){queuedAfterModel=work;openModal('auth','login');}return false;}
+  }
+  if(model.mode!=='live')await refreshModel();
+  if(model.mode!=='live'){
+    if(modelRuntime.managed)toast('生成暂时不可用，请稍后重试。','error');
+    else{queuedAfterModel=work;openModal('model');}
+    return false;
+  }
+  return true;
+}
+function generationError(error,work){
+  if(error.name==='AbortError')return;
+  toast(error.message,'error');
+  if(modelRuntime.managed&&error.status===401){account={user:null,quota:null,loading:false};updateAccountButton();queuedAfterModel=work;openModal('auth','login');}
+}
 function header(){return `<header class="app-header">
   <div class="header-start"><button class="brand" data-action="home" aria-label="有点想法，返回首页"><span class="brand-mark" aria-hidden="true"><img class="brand-logo" src="./assets/brand/logo.svg" alt="" width="44" height="30"></span><span>有点想法<span class="brand-dot">.</span></span></button>
   ${screen==='workspace'?`<span class="header-divider"></span><button class="project-title" data-action="project-settings"><span class="project-title-text">${esc(p.title)}</span><svg class="small-chevron" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m5 6.5 3 3 3-3"/></svg></button><span class="autosaved"><span></span>已保存</span>`:''}</div>
   ${screen==='workspace'?`<button class="shelf-pull ${showShelf?'is-open':''}" data-action="shelf" aria-controls="shelf" aria-expanded="${showShelf}" aria-label="${showShelf?'拉起绳子，收起收藏':'拉下绳子，查看收藏'}，${p.favorites.length} 个方向" title="${showShelf?'拉起，收起收藏':'拉一下，查看收藏'}"><img src="./assets/icons/figma-shelf-pull.svg" alt="" aria-hidden="true"><span class="pull-count" ${p.favorites.length?'':'hidden'}>${p.favorites.length}</span></button>`:''}
   <div class="header-actions">${screen==='workspace'?`<label class="search-field">${icon('search')}<input id="node-search" aria-label="搜索节点" placeholder="搜索想法" value="${esc(search)}"></label>${button('导出','export')}${button('分享','share')}`:''}
-  <button id="model-status" class="model-status" data-action="model"></button>
+  ${accountButton()}
   </div></header>`;}
 function render(){if(screen==='home')renderHome();else renderWorkspace();updateModelBadge();}
 function renderHome(){
   cancelCollectionFlight();
-  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="home-launch-content"><img class="home-brand-logo" src="./assets/brand/logo.svg" alt="有点想法" width="196" height="131"><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project"><span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects"><span>打开项目</span></button></div></div></main>`;
+  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="home-account">${accountButton()}</div><div class="home-launch-content"><img class="home-brand-logo" src="./assets/brand/logo.svg" alt="有点想法" width="196" height="131"><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project"><span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects"><span>打开项目</span></button></div></div></main>`;updateAccountButton();
 }
 function renderWorkspace(){
   cancelCollectionFlight();
@@ -348,7 +409,7 @@ function openDemo(){
 async function generate(parentId,kind){
   if(editing&&!saveInlineEdit())return;
   if(pending)return toast('请等待这次生成完成，或先取消。');
-  if(model.mode!=='live'){queuedAfterModel=()=>generate(parentId,kind);openModal('model');return;}
+  if(!await generationAllowed(()=>generate(parentId,kind))||pending)return;
   const node=p.nodes.find(n=>n.id===parentId);if(!node)return;
   const inspiration=isInspiration()?inspirationInput(p,node):null;
   if(inspiration)kind=inspiration.targetKind;
@@ -362,7 +423,7 @@ async function generate(parentId,kind){
     if(!result.nodes.length)throw new Error(result.message||'模型没有给出可用候选，可以调整条件后重试。');
     if(!p.nodes.some(n=>n.id===parentId))throw new Error('来源卡片已被移除，这次结果没有加入画布。');
     pending=null;let created;commit(()=>{created=appendGenerated(p,parentId,kind,result.nodes,'live',layout);generations.record(created);});selectOnly(created[0].id);menu=null;drawGraph();revealCards([node,...created]);animateCreated(created,node);toast(`已生成 ${created.length} 张${stageLabel(created[0])}卡片`);if(result.message)toast(result.message);
-  }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller)clearPending();updateNotices();}
+  }catch(error){generationError(error,()=>generate(parentId,kind));}finally{if(pending?.controller===controller)clearPending();updateNotices();}
 }
 async function combine(aId,bId){
   if(editing&&!saveInlineEdit())return;
@@ -370,7 +431,7 @@ async function combine(aId,bId){
   const a=p.nodes.find(n=>n.id===aId),b=p.nodes.find(n=>n.id===bId);
   if(!canCombine(a,b))return toast('只能关联两张不同的同类卡片。','error');
   connecting=null;assigning=null;
-  if(model.mode!=='live'){queuedAfterModel=()=>combine(aId,bId);openModal('model');drawGraph();return;}
+  if(!await generationAllowed(()=>combine(aId,bId))||pending)return;
   finishCardMotion();
   const before=clone(p.nodes),protectedIds=new Set([...ancestorsOf(p,aId),...ancestorsOf(p,bId)].map(n=>n.id));
   const projectId=p.id,controller=new AbortController(),layout=planNearbySpace(p.nodes,{x:(a.x+b.x)/2,y:(a.y+b.y)/2},1,protectedIds),positions=layout.positions;
@@ -381,7 +442,7 @@ async function combine(aId,bId){
     if(!result.nodes.length){toast(result.message||'没有找到合理交集，原卡片已保留。');return;}
     if(![aId,bId].every(id=>p.nodes.some(n=>n.id===id)))throw new Error('来源卡片已被移除，这次结果没有加入画布。');
     pending=null;let node;commit(()=>{node=mergeNodes(p,aId,bId,result.nodes[0],'live',positions[0]);generations.record([node]);});selectOnly(node.id);drawGraph();revealCards(ancestorsOf(p,node.id));animateCreated([node],positions[0]);toast('已生成交集卡片');
-  }catch(error){if(error.name!=='AbortError')toast(error.message,'error');}finally{if(pending?.controller===controller)clearPending();updateNotices();}
+  }catch(error){generationError(error,()=>combine(aId,bId));}finally{if(pending?.controller===controller)clearPending();updateNotices();}
 }
 function clearPending(){const before=graphNodes().map(n=>({...n})),previousView=pending?.viewBefore,world=$('#world'),transform=world&&getComputedStyle(world).transform;pending=null;if(previousView)view=previousView;drawGraph();animateLayout(before);if(world&&transform)world.animate([{transform},{transform:world.style.transform}],{duration:motionDuration(420),easing:'cubic-bezier(.2,.8,.2,1)'});}
 function selectNode(id,additive=false){
@@ -543,7 +604,13 @@ function dispatch(action,el){
     case'delete-project':openModal('delete-project',id);break;
     case'import':$('#file-import').click();break;
     case'demo':openDemo();break;
-    case'model':openModal('model');break;
+    case'model':if(!modelRuntime.managed)openModal('model');break;
+    case'account':showAccount();break;
+    case'auth-login':openModal('auth','login');break;
+    case'auth-register':openModal('auth','register');break;
+    case'auth-recover':openModal('auth','recover');break;
+    case'auth-password':openModal('auth','reset');break;
+    case'auth-signout':signOutAccount();break;
     case'project-settings':openModal('project-settings');break;
     case'shelf':toggleShelf();break;
     case'outline':showOutline=!showOutline;renderWorkspace();break;
@@ -657,11 +724,61 @@ async function closeDirection(state){
   if(modal!==state)return;releaseDirection(state);modal=null;overlays.innerHTML='';
   if(lastFocus?.isConnected)lastFocus.focus({preventScroll:true});else (showShelf?$('.shelf-pull'):$('#surface'))?.focus({preventScroll:true});
 }
+function authMarkup(data){
+  const view=typeof data==='string'?data:data?.view||'login',email=typeof data==='object'?data?.email||'':'';
+  const titles={login:'欢迎回来',register:'创建账号',recover:'找回密码',reset:'设置新密码',verify:'验证邮箱',sent:'查看邮箱'};
+  if(view==='verify'||view==='sent')return {title:titles[view],body:`<div class="auth-message" role="status"><span class="auth-mail-icon" aria-hidden="true">✉</span><strong>${view==='verify'?'请通过邮件完成验证':'重置链接已发送'}</strong><span>${esc(email)}</span></div><div class="form-actions auth-sent-actions">${view==='verify'?'<button type="button" class="button" id="auth-resend">重新发送</button>':''}${button('返回登录','auth-login',{class:'primary'})}</div><p id="auth-error" class="form-error" role="alert" hidden></p>`};
+  const password=view!=='recover',newPassword=view==='register'||view==='reset';
+  return {title:titles[view],body:`${['login','register'].includes(view)?`<div class="auth-tabs" role="group" aria-label="登录或注册">${button('登录','auth-login',{class:view==='login'?'is-active':'',extra:`aria-pressed="${view==='login'}"`})}${button('注册','auth-register',{class:view==='register'?'is-active':'',extra:`aria-pressed="${view==='register'}"`})}</div>`:''}<form id="auth-form" data-view="${view}">${view!=='reset'?`<label class="field"><span>邮箱</span><input id="auth-email" type="email" name="email" required autocomplete="email" inputmode="email" maxlength="254" value="${esc(email)}"></label>`:''}${password?`<label class="field"><span id="auth-password-label">${newPassword?'新密码 · 至少 8 位':'密码'}</span><div class="auth-password"><input id="auth-password" type="password" name="password" aria-labelledby="auth-password-label" required ${newPassword?'minlength="8"':''} maxlength="128" autocomplete="${newPassword?'new-password':'current-password'}"><button type="button" id="auth-toggle-password" aria-label="显示密码" aria-controls="auth-password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>`:''}<p id="auth-error" class="form-error" role="alert" hidden></p><div class="form-actions auth-form-actions">${view==='login'?button('忘记密码？','auth-recover'):view==='recover'?button('返回登录','auth-login'):''}<button type="submit" class="button primary" id="auth-submit">${{login:'登录',register:'创建账号',recover:'发送重置邮件',reset:'保存新密码'}[view]}</button></div></form>`};
+}
+function bindAuth(data){
+  const error=$('#auth-error'),showError=message=>{if(error?.isConnected){error.textContent=message;error.hidden=false;}};
+  $('#auth-toggle-password')?.addEventListener('click',event=>{const control=event.currentTarget,input=$('#auth-password'),visible=input.type==='password';input.type=visible?'text':'password';control.setAttribute('aria-pressed',String(visible));control.setAttribute('aria-label',visible?'隐藏密码':'显示密码');});
+  $('#auth-resend')?.addEventListener('click',async event=>{
+    const btn=event.currentTarget;btn.disabled=true;btn.textContent='正在发送…';error.hidden=true;
+    try{await (await ensureAuth()).resend(data.email);btn.textContent='已发送';}
+    catch(err){showError(err.message);btn.disabled=false;btn.textContent='重新发送';}
+  });
+  $('#auth-form')?.addEventListener('submit',async event=>{
+    event.preventDefault();const form=event.currentTarget,view=form.dataset.view,submit=$('#auth-submit'),label=submit.textContent;
+    if(submit.disabled)return;submit.disabled=true;submit.textContent='请稍候…';form.setAttribute('aria-busy','true');error.hidden=true;
+    const email=$('#auth-email')?.value.trim(),password=$('#auth-password')?.value;
+    try{
+      const client=await ensureAuth();
+      if(view==='login'){
+        await client.signIn(email,password);await refreshAccount();
+        const work=queuedAfterModel;queuedAfterModel=null;closeModal();toast('已登录');work?.();
+      }else if(view==='register'){
+        const result=await client.signUp(email,password);
+        if(result.session)await client.signOut();
+        openModal('auth',{view:'verify',email});
+      }else if(view==='recover'){
+        await client.recover(email);openModal('auth',{view:'sent',email});
+      }else if(view==='reset'){
+        await client.updatePassword(password);closeModal();toast('密码已更新');
+      }
+    }catch(err){showError(err.message);}
+    finally{if(form.isConnected){submit.disabled=false;submit.textContent=label;form.removeAttribute('aria-busy');}}
+  });
+}
+async function signOutAccount(){
+  const btn=$('[data-action="auth-signout"]');if(btn)btn.disabled=true;
+  try{await (await ensureAuth()).signOut();pending?.controller.abort();accountRevision++;account={user:null,quota:null,loading:false};closeModal();updateAccountButton();toast('已退出登录');}
+  catch(error){toast(error.message,'error');if(btn?.isConnected)btn.disabled=false;}
+}
 function openModal(kind,data=null){
   if(modal?.kind==='saved-detail')releaseDirection(modal);
   menu=null;fanPinned=null;drawNodePanel();
   if(kind==='saved-detail'){openDirection(data);return;}
   lastFocus=document.activeElement;modal={kind,data};let body='',footer='',title='',wide=false;
+  if(kind==='auth'){
+    const content=authMarkup(data);title=content.title;body=content.body;
+  }
+  if(kind==='account'){
+    title='我的账号';const q=account.quota;
+    body=`<div class="account-profile"><span class="account-avatar" aria-hidden="true">${esc(account.user.email[0].toUpperCase())}</span><strong>${esc(account.user.email)}</strong></div><div class="account-quota"><span>免费生成</span><div><strong>${q.remaining}</strong><span>/ ${q.limit} 次剩余</span></div><progress max="${q.limit||1}" value="${q.used}" aria-label="已使用 ${q.used} 次，共 ${q.limit} 次"></progress><span>${q.blocked?'账号暂不可用':q.remaining===0?'免费次数已用完':q.pending?`${q.pending} 次生成中`:`已使用 ${q.used} 次`}</span></div>`;
+    footer=button('退出登录','auth-signout',{class:'danger-text'})+button('修改密码','auth-password');
+  }
   if(kind==='open-projects'){
     title='打开项目';wide=true;
     body=`<div class="project-picker">${projects.length?`<div class="project-picker-grid">${projects.map(project=>`<article class="project-card"><button class="project-open" data-action="open-project" data-id="${project.id}"><h3>${esc(project.title)}</h3><p>${esc(project.description)}</p><footer><span>${project.nodes.length} 张卡片</span><time>${new Date(project.updatedAt).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</time></footer></button><button class="project-delete" data-action="delete-project" data-id="${project.id}" aria-label="删除项目 ${esc(project.title)}">×</button></article>`).join('')}</div>`:'<p class="picker-empty">暂无项目</p>'}</div>`;
@@ -669,9 +786,6 @@ function openModal(kind,data=null){
   }
   if(kind==='new-project'){
     title='新建探索';body=`<form id="new-project-form"><label class="field"><span>选题内容</span><textarea id="project-description" rows="5" maxlength="2000" placeholder="请简单描述你的选题内容，一两句话也可以。" required></textarea></label><label class="field"><span>项目名称 <em>选填</em></span><input id="project-name" maxlength="50" ></label><div class="form-actions">${button('取消','close-modal')}<button type="submit" class="button primary">创建 ${icon('arrow')}</button></div></form>`;
-  }
-  if(kind==='model'&&(model.managed||modelRuntime.managed)){
-    title='AI 服务';body=`<div class="original-idea"><strong>${model.mode==='live'?esc(model.model):'暂未连接'}</strong></div>`;footer=button('重新连接','refresh-model')+button('关闭','close-modal',{class:'primary'});
   }
   if(kind==='model'&&!model.managed&&!modelRuntime.managed){
     const deepseek=model.provider==='deepseek'||!model.baseUrl||model.baseUrl.includes('api.deepseek.com');
@@ -704,10 +818,11 @@ function openModal(kind,data=null){
   if(kind==='delete-node'||kind==='delete-project'){
     title=kind==='delete-node'?'删除这条分支？':'删除这个项目？';body='';footer=button('取消','close-modal')+`<button class="button destructive" id="confirm-delete">确认删除</button>`;
   }
-  overlays.innerHTML=modalShell(title,body,footer,wide,['new-project','open-projects'].includes(kind));bindModal(kind,data);requestAnimationFrame(()=>($('.modal input,.modal textarea')||$('.modal button'))?.focus());
+  overlays.innerHTML=modalShell(title,body,footer,wide,['new-project','open-projects','auth','account'].includes(kind));if(kind==='auth'||kind==='account')$('.modal').classList.add('account-modal');bindModal(kind,data);requestAnimationFrame(()=>($('.modal input,.modal textarea')||$('.modal button'))?.focus());
 }
 function closeModal(){if(modal?.kind==='saved-detail'){closeDirection(modal);return;}if(modal?.kind==='model')queuedAfterModel=null;modal=null;overlays.innerHTML='';if(lastFocus?.isConnected)lastFocus.focus();else if(screen==='workspace')(showShelf?$('.shelf-pull'):$('#surface'))?.focus({preventScroll:true});}
 function bindModal(kind,data){
+  if(kind==='auth')bindAuth(data);
   $('.modal-backdrop').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
   $('#new-project-form')?.addEventListener('submit',e=>{e.preventDefault();const description=$('#project-description').value.trim();if(!description)return;const project=createProject(description,$('#project-name').value);project.explorationMode='inspiration';projects.unshift(project);closeModal();openProject(project);persist();fanPinned=null;drawGraph();toast('已创建探索');});
   const connectionInput=()=>({baseUrl:$('#model-url').value.trim(),provider:$('#model-provider').value,model:$('#model-name').value.trim(),apiKey:$('#model-key').value});
@@ -773,5 +888,6 @@ function printProject(){
 }
 window.addEventListener('resize',()=>{cancelCollectionFlight();if(screen==='workspace'){drawNodePanel();if(editing)requestAnimationFrame(positionInlineEditor);}});
 render();refreshModel();
+if(modelRuntime.managed)ensureAuth().catch(()=>{});
 if(location.hash.startsWith('#project=')){try{const binary=atob(location.hash.slice(9));const value=JSON.parse(new TextDecoder().decode(Uint8Array.from(binary,c=>c.charCodeAt(0)))),project=validateProject(value);project.id=uid();project.title+=' · 副本';projects.unshift(project);openProject(project);persist();window.history.replaceState(null,'',location.pathname);}catch{toast('分享链接无法打开，可以让对方导出项目文件。','error');}}
 if(new URLSearchParams(location.search).has('demo'))openDemo();

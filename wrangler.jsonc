@@ -4,6 +4,7 @@
   "main": "cloudflare/worker.js",
   "compatibility_date": "2026-10-30",
   "workers_dev": true,
+  "keep_vars": true,
   "vars": {
     "TOPIC_AI_BASE_URL": "https://api.deepseek.com",
     "TOPIC_AI_MODEL": "deepseek-flash",
