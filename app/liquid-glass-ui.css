@@ -276,3 +276,10 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .modal-compact-header .form-actions .button.primary{color:#675583;background:linear-gradient(145deg,#eee7f8cc,#ddd1eea6);box-shadow:0 5px 16px #71608712,0 1px 0 #ffffffed inset,0 -1px 0 #b9a6ce47 inset}
 .modal-compact-header .form-actions .button.primary:hover{color:#5c4978;background:linear-gradient(145deg,#eee7f8ed,#ddd1eec9);box-shadow:0 7px 20px #7160871a,0 1px 0 #fff inset}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal.modal-compact-header{background:#f9fbff}.modal-compact-header .field input,.modal-compact-header .field textarea{background:#fff}.modal-compact-header .form-actions .button.primary{background:#e7def2;color:#53406e}}
+
+/* Restore the original subtle glass opacity; give the lavender action more presence. */
+.modal.modal-compact-header{background:linear-gradient(135deg,#ffffffed,#f8fafff0 60%,#ffffffed) padding-box,linear-gradient(130deg,#dcd6eeaa,#ffffffde 28%,#d4e9e6a6 55%,#f0ded8a3 78%,#eaddeda6) border-box;backdrop-filter:blur(30px) saturate(1.25);-webkit-backdrop-filter:blur(30px) saturate(1.25)}
+.modal-compact-header .field input,.modal-compact-header .field textarea{background:#ffffff94}
+.modal-compact-header .form-actions .button.primary{color:#fff;border-color:#ffffffb3;background:linear-gradient(145deg,#aa8bdce8,#8d6bc9e8);box-shadow:0 5px 16px #7955ad26,0 1px 0 #ffffff85 inset,0 -1px 0 #6948a347 inset}
+.modal-compact-header .form-actions .button.primary:hover{color:#fff;background:linear-gradient(145deg,#a180d9f2,#805cc3f2);box-shadow:0 7px 20px #7955ad30,0 1px 0 #ffffff85 inset}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal.modal-compact-header{background:#f9fbff;backdrop-filter:none;-webkit-backdrop-filter:none}.modal-compact-header .field input,.modal-compact-header .field textarea{background:#fff}.modal-compact-header .form-actions .button.primary{background:#8060b5;color:#fff}}
