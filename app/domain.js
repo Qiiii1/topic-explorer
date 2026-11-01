@@ -15,7 +15,7 @@ export function createProject(description, title = '') {
   const id = uid();
   return {
     version: VERSION, id, title: title.trim() || description.trim().split(/[。！？\n]/)[0].slice(0, 22) || '未命名探索',
-    description: description.trim(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    description: description.trim(), initialBrief: description.trim(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     nodes: [{ id: uid(), kind: 'root', title: description.trim().slice(0, 42) || '一个还不确定的想法', description: description.trim(), rationale: '这次探索最初想弄清楚的事。', parentIds: [], x: 0, y: 0, origin: 'manual' }],
     edges: [], favorites: [], context: '', generationCount: 3, explorationMode: 'organize',
   };
@@ -339,11 +339,25 @@ export function validateProject(value) {
     const expected=getPaths(f.snapshot,f.nodeId).map(path=>path.map(n=>n.id));
     if(!expected.length||JSON.stringify(expected)!==JSON.stringify(f.snapshot.paths))throw new Error('收藏路径不完整');
   }
+  if(value.initialBrief!==undefined&&typeof value.initialBrief!=='string')throw new Error('原始题目格式不正确');
   if(value.explorationMode!==undefined&&!['organize','inspiration'].includes(value.explorationMode))throw new Error('探索模式格式不正确');
+  // Migrate the former single-result setting back to the supported 3/6/10 choices.
   if(value.inspirationCount!==undefined&&![1,3,6,10].includes(value.inspirationCount))throw new Error('灵感生成数量格式不正确');
   const project = clone(value); project.explorationMode ||= 'organize';
   // Earlier UI-only mode switches kept organizer nodes; preserve them until the user switches again.
   if(project.explorationMode==='inspiration'&&project.nodes.some(n=>['scene','pain','people'].includes(n.kind)))project.explorationMode='organize';
+  if(project.inspirationCount===1)project.inspirationCount=3;
+  if(project.modeWorkspaces!==undefined){
+    if(!project.modeWorkspaces||typeof project.modeWorkspaces!=='object'||Array.isArray(project.modeWorkspaces))throw new Error('模式画布格式不正确');
+    const saved={};
+    for(const [mode,canvas] of Object.entries(project.modeWorkspaces)){
+      if(!['organize','inspiration'].includes(mode)||!canvas||typeof canvas!=='object')throw new Error('模式画布格式不正确');
+      const checked=validateProject({...project,...canvas,explorationMode:mode,modeWorkspaces:undefined});
+      if(checked.explorationMode!==mode)throw new Error('模式画布包含不匹配的节点类型');
+      saved[mode]=canvasSnapshot(checked);
+    }
+    project.modeWorkspaces=saved;
+  }
   project.favorites ||= []; project.context ||= ''; project.generationCount = [3, 6, 10].includes(value.generationCount) ? value.generationCount : 3; return project;
 }
 export function toMarkdown(project, saved = null) {
@@ -361,13 +375,33 @@ export function toMarkdown(project, saved = null) {
   return out + '\n---\n以上候选方向仍需通过资料或调研验证。\n';
 }
 
-// Both modes start afresh from the same complete brief; old snapshots must not leak across modes.
+// Store only canvas fields: inactive modes cannot contain nested projects or other workspaces.
+function canvasSnapshot(project) {
+  return clone({nodes:project.nodes,edges:project.edges,favorites:project.favorites,description:project.description,context:project.context||'',generationCount:project.generationCount||3,inspirationCount:[3,6,10].includes(project.inspirationCount)?project.inspirationCount:3});
+}
 export function switchExplorationMode(project, mode) {
   if(!['organize','inspiration'].includes(mode))throw new Error('未知探索模式');
-  if((project.explorationMode||'organize')===mode)return false;
+  const previous=project.explorationMode||'organize';
+  if(previous===mode)return false;
   const root=rootOf(project);
-  project.nodes=[{...root,parentIds:[],x:0,y:0,hidden:false}];
-  project.edges=[];project.favorites=[];project.explorationMode=mode;
+  project.initialBrief ||= root.description||project.description||root.title;
+  const workspaces=project.modeWorkspaces||{};
+  workspaces[previous]=canvasSnapshot(project);
+  const next=workspaces[mode]||{nodes:[{...clone(root),title:project.initialBrief.slice(0,42),description:project.initialBrief,parentIds:[],x:0,y:0,hidden:false}],edges:[],favorites:[],description:project.initialBrief,context:project.context||'',generationCount:3,inspirationCount:3};
+  Object.assign(project,clone(next));
+  delete workspaces[mode];
+  project.modeWorkspaces=workspaces;project.explorationMode=mode;
   project.updatedAt=new Date().toISOString();
   return true;
+}
+
+// Delete exactly the selected cards; keep unselected children and shared intersections.
+export function removeSelectedNodes(project, ids) {
+  const selected=new Set(ids),removed=new Set(project.nodes.filter(node=>node.kind!=='root'&&selected.has(node.id)).map(node=>node.id));
+  if(!removed.size)return removed;
+  project.nodes=project.nodes.filter(node=>!removed.has(node.id));
+  for(const node of project.nodes){node.parentIds=node.parentIds.filter(id=>!removed.has(id));if(node.parentIds.length<2)node.merged=false;}
+  project.edges=project.edges.filter(edge=>!removed.has(edge.from)&&!removed.has(edge.to));
+  if(removed.size)project.updatedAt=new Date().toISOString();
+  return removed;
 }

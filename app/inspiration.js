@@ -6,7 +6,7 @@ const METHODS=['remote-association','abstract-needs','generic-parts','constraint
 export function inspirationStep(project,node) {
   const step=STEPS[node?.kind];
   if(!step)throw new Error('请选择题目、方向或方案节点');
-  return {action:step[0],targetKind:step[1],label:step[2],count:project.inspirationCount??(node.kind==='root'?3:1)};
+  return {action:step[0],targetKind:step[1],label:step[2],count:[3,6,10].includes(project.inspirationCount)?project.inspirationCount:3};
 }
 const historyNode=node=>({id:node.id,type:node.kind==='root'?'brief':node.kind,parent_id:node.parentIds[0]||null,title:node.title,summary:node.description||'',meta:node.meta||null});
 export function inspirationInput(project,node) {
@@ -15,7 +15,7 @@ export function inspirationInput(project,node) {
 }
 export function validateInspirationInput(input) {
   const type=input.node?.type,step=STEPS[type==='brief'?'root':type];
-  if(input.operation!=='inspire'||!step||input.action!==step[0]||input.targetKind!==step[1]||!input.selected_node_id||input.node.id!==input.selected_node_id||typeof input.brief?.original!=='string'||!input.brief.original.trim()||![1,3,6,10].includes(input.count)||!Array.isArray(input.nodes)||!Array.isArray(input.ancestors))throw new Error('灵感生成阶段或题目信息不完整');
+  if(input.operation!=='inspire'||!step||input.action!==step[0]||input.targetKind!==step[1]||!input.selected_node_id||input.node.id!==input.selected_node_id||typeof input.brief?.original!=='string'||!input.brief.original.trim()||![3,6,10].includes(input.count)||!Array.isArray(input.nodes)||!Array.isArray(input.ancestors))throw new Error('灵感生成阶段或题目信息不完整');
   if(!input.nodes.some(n=>n.id===input.selected_node_id&&n.type===type))throw new Error('找不到灵感生成的来源节点');
 }
 export function inspirationMessages(input) {

@@ -24,15 +24,24 @@ async function request(server,body) {
   await server.listeners('request')[0](req,res);return {status:res.statusCode,...res.body};
 }
 
-test('模式切换仅保留完整题目与条件，清除跨模式分支、连线和收藏；旧模式数据兼容',()=>{
-  const project=createProject('完整题目'.repeat(40));project.context='明确要求：四周完成';
+test('两种模式各自保存节点、位置、收藏、背景和数量，刷新后切换可恢复',()=>{
+  let project=createProject('完整题目'.repeat(40));project.context='明确要求：四周完成';project.generationCount=6;
   const root=rootOf(project),original=root.description;
-  const scene=appendGenerated(project,root.id,'scene',[{title:'旧场景',rationale:'来源'}])[0];favoriteNode(project,scene.id);root.hidden=true;
+  const scene=appendGenerated(project,root.id,'scene',[{title:'梳理场景',rationale:'来源'}])[0];scene.x=450;favoriteNode(project,scene.id);
+  const organizer=structuredClone(project.nodes);
   assert.equal(switchExplorationMode(project,'inspiration'),true);
-  assert.equal(project.nodes.length,1);assert.equal(rootOf(project).id,root.id);assert.equal(rootOf(project).description,original);assert.equal(rootOf(project).hidden,false);
+  assert.equal(project.nodes.length,1);assert.equal(rootOf(project).id,root.id);assert.equal(rootOf(project).description,original);
   assert.equal(project.context,'明确要求：四周完成');assert.deepEqual(project.edges,[]);assert.deepEqual(project.favorites,[]);
-  const dirs=add(project,rootOf(project));assert.equal(switchExplorationMode(project,'inspiration'),false);assert.equal(project.nodes.length,4);
-  switchExplorationMode(project,'organize');assert.equal(project.nodes.length,1);assert.equal(rootOf(project).description,original);
+  const dirs=add(project,rootOf(project));dirs[0].x=-600;favoriteNode(project,dirs[0].id);project.context='灵感独立条件';project.inspirationCount=10;
+  assert.equal(switchExplorationMode(project,'inspiration'),false);assert.equal(project.nodes.length,4);
+  const inspiration=structuredClone(project.nodes);
+  project=validateProject(JSON.parse(JSON.stringify(project)));
+  switchExplorationMode(project,'organize');assert.deepEqual(project.nodes,organizer);assert.equal(project.favorites[0].nodeId,scene.id);assert.equal(project.generationCount,6);assert.equal(project.context,'明确要求：四周完成');
+  project.nodes[1].title='梳理独立编辑';
+  project=validateProject(JSON.parse(JSON.stringify(project)));switchExplorationMode(project,'inspiration');assert.deepEqual(project.nodes,inspiration);assert.equal(project.context,'灵感独立条件');assert.equal(project.inspirationCount,10);assert.equal(project.favorites[0].nodeId,dirs[0].id);
+  const payload=inspirationInput(project,rootOf(project));assert.ok(!payload.nodes.some(n=>n.id===scene.id));
+  switchExplorationMode(project,'organize');assert.equal(project.nodes[1].title,'梳理独立编辑');
+  const broken=structuredClone(project);broken.modeWorkspaces.inspiration.nodes[1].parentIds=['missing'];assert.throws(()=>validateProject(broken),/来源/);
   const legacy=createProject('旧项目');appendGenerated(legacy,rootOf(legacy).id,'pain',[{title:'旧痛点',rationale:'来源'}]);legacy.explorationMode='inspiration';assert.equal(validateProject(legacy).explorationMode,'organize');
 });
 
@@ -43,7 +52,7 @@ test('方向生成、同方向追加并列方案、方案多层演进，完整�
   assert.deepEqual(idea.parentIds,[direction.id]);assert.deepEqual(parallel.parentIds,[direction.id]);
   const child=add(p,idea)[0],grandchild=add(p,child,'deep')[0];
   assert.deepEqual(getPaths(p,grandchild.id)[0].map(n=>n.id),[root.id,direction.id,idea.id,child.id,grandchild.id]);
-  const next=inspirationInput(p,grandchild);assert.equal(next.action,'evolve_idea');assert.equal(next.count,1);assert.equal(next.brief.original,root.description);assert.equal(next.brief.explicit_requirements,p.context);assert.ok(next.nodes.some(n=>n.id===parallel.id));assert.equal(next.ancestors.length,5);
+  const next=inspirationInput(p,grandchild);assert.equal(next.action,'evolve_idea');assert.equal(next.count,3);assert.equal(next.brief.original,root.description);assert.equal(next.brief.explicit_requirements,p.context);assert.ok(next.nodes.some(n=>n.id===parallel.id));assert.equal(next.ancestors.length,5);
   assert.equal(child.meta.preserved,'让分歧可见');assert.equal(child.meta.changed,'由即时反馈变为延时交换');assert.equal(child.meta.method,null);
   assert.equal(p.edges.find(e=>e.to===child.id).relation,'演进方案');assert.equal(canCombine(idea,parallel),false);
 });
@@ -66,7 +75,9 @@ test('三阶段提示遵循 skill，不要求三维度或完整实施方案，�
 
 test('来源和阶段校验、方向证据、演进保留点、重复过滤及不足数量反馈',()=>{
   const p=createProject('原题');switchExplorationMode(p,'inspiration');const input=inspirationInput(p,rootOf(p));
-  assert.throws(()=>validateGenerationInput({...input,action:'evolve_idea'}),/阶段/);assert.throws(()=>validateGenerationInput({...input,count:4}),/阶段/);
+  assert.throws(()=>validateGenerationInput({...input,action:'evolve_idea'}),/阶段/);assert.throws(()=>validateGenerationInput({...input,count:4}),/阶段/);assert.throws(()=>validateGenerationInput({...input,count:1}),/阶段/);
+  for(const count of [3,6,10]){p.inspirationCount=count;assert.equal(inspirationInput(p,rootOf(p)).count,count);validateGenerationInput({...input,count});}
+  p.inspirationCount=3;const old=structuredClone(p);old.inspirationCount=1;assert.equal(validateProject(old).inspirationCount,3);
   assert.throws(()=>validateInspirationResult({...resultFor(input),append_to:'wrong'},input),/来源/);
   const missing=resultFor(input);missing.nodes[0].meta.applicability_basis=null;assert.throws(()=>validateInspirationResult(missing,input),/依据/);
   const dup=resultFor(input);dup.nodes[1].title=dup.nodes[0].title;const filtered=validateInspirationResult(dup,input);assert.equal(filtered.nodes.length,2);assert.ok(filtered.message);

@@ -1,5 +1,5 @@
 import {inspirationStep,inspirationInput} from './inspiration.js';
-import { KINDS, CARD, uid, clone, createProject, switchExplorationMode, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, mergeNodes, assignParent, favoriteNode, removeBranch, visibleNodes, boundsOf, validateProject, toMarkdown, planNearbySpace, planGenerationSpace, branchPositions, moveBranch, arrangeByMainline, canCombine, repelCards, spreadCrowdedCards, nodesInRect, selectionExport, importSelection } from './domain.js';
+import { KINDS, CARD, uid, clone, createProject, switchExplorationMode, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, mergeNodes, assignParent, favoriteNode, removeBranch, removeSelectedNodes, visibleNodes, boundsOf, validateProject, toMarkdown, planNearbySpace, planGenerationSpace, branchPositions, moveBranch, arrangeByMainline, canCombine, repelCards, spreadCrowdedCards, nodesInRect, selectionExport, importSelection } from './domain.js';
 import { demoGenerate } from './demo.js';
 import { createBrowserModelClient } from './browser-model.js';
 import './vendor/liquid-glass/components.js';
@@ -80,7 +80,7 @@ function renderWorkspace(){
     <aside id="outline" class="outline glass ${showOutline?'is-open':''}" aria-label="探索路径"></aside>
     <aside id="node-panel" class="node-panel glass" aria-label="当前卡片操作" hidden></aside>
     <div id="selection-notice" class="selection-notice glass" hidden></div>
-    <section class="manual-dock" aria-label="画布工具栏"><div class="mode-dock" aria-label="探索模式切换"><lg-segmented id="exploration-mode" value="${p.explorationMode==='inspiration'?'inspiration':'organize'}" label="探索模式" refraction="5"><button value="organize">梳理模式</button><button value="inspiration">灵感模式</button></lg-segmented></div><div id="branch-picker" class="branch-picker" hidden></div><lg-panel class="dock-panel" tone="light" radius="26" refraction="20" bezel="0.32" blur="3" chroma="0.12" backdrop="#surface"><div class="dock-toolbar"><div class="canvas-tools" role="group" aria-label="画布操作">${glassAction('撤回生成，Command Z','undo',{glyph:'undo',iconOnly:true,disabled:!generations.canUndo(p)})}${glassAction('恢复生成，Command Shift Z','redo',{glyph:'undo',iconOnly:true,class:'redo-icon',disabled:!generations.canRedo()})}<span class="tool-separator"></span>${glassAction('缩小','zoom-out',{glyph:'minus',iconOnly:true})}${glassAction(Math.round(view.scale*100)+'%','fit',{class:'zoom-value',extra:'id="zoom-value" aria-label="适应画面" title="适应画面"'})}${glassAction('放大','zoom-in',{glyph:'plus',iconOnly:true})}</div><div class="dock-actions"><div class="exploration-tools" role="group" aria-label="探索管理">${glassAction('一键整理','arrange',{icon:'layers',iconOnly:true,title:'按主线整理画布'})}${glassAction(showOutline?'收起探索路径':'探索路径','outline',{icon:'branch',iconOnly:true,extra:`aria-pressed="${showOutline}" aria-controls="outline"`})}</div><div class="branch-tools" role="group" aria-label="分支显示">${glassAction('收起分支','hide-selected',{extra:'aria-label="收起选中卡片及其分支"'})}${glassAction('显示分支','branch-menu',{extra:'aria-expanded="false" aria-controls="branch-picker"'})}${glassAction(focusId?'全部分支':'只看分支','focus-selected',{extra:`aria-pressed="${!!focusId}"`})}</div></div><div class="generation-setting"><span>生成</span><lg-segmented id="generation-count" value="${generationCount()}" label="每次生成数量" refraction="5">${(isInspiration()?[1,3,6,10]:[3,6,10]).map(n=>`<button value="${n}">${n}</button>`).join('')}</lg-segmented><span>张</span></div></div></lg-panel></section>
+    <section class="manual-dock" aria-label="画布工具栏"><div class="mode-dock" aria-label="探索模式切换"><lg-segmented id="exploration-mode" value="${p.explorationMode==='inspiration'?'inspiration':'organize'}" label="探索模式" refraction="5"><button value="organize">梳理模式</button><button value="inspiration">灵感模式</button></lg-segmented></div><div id="branch-picker" class="branch-picker" hidden></div><lg-panel class="dock-panel" tone="light" radius="26" refraction="20" bezel="0.32" blur="3" chroma="0.12" backdrop="#surface"><div class="dock-toolbar"><div class="canvas-tools" role="group" aria-label="画布操作">${glassAction('撤回生成，Command Z','undo',{glyph:'undo',iconOnly:true,disabled:!generations.canUndo(p)})}${glassAction('恢复生成，Command Shift Z','redo',{glyph:'undo',iconOnly:true,class:'redo-icon',disabled:!generations.canRedo()})}<span class="tool-separator"></span>${glassAction('缩小','zoom-out',{glyph:'minus',iconOnly:true})}${glassAction(Math.round(view.scale*100)+'%','fit',{class:'zoom-value',extra:'id="zoom-value" aria-label="适应画面" title="适应画面"'})}${glassAction('放大','zoom-in',{glyph:'plus',iconOnly:true})}</div><div class="dock-actions"><div class="exploration-tools" role="group" aria-label="探索管理">${glassAction('一键整理','arrange',{icon:'layers',iconOnly:true,title:'按主线整理画布'})}${glassAction(showOutline?'收起探索路径':'探索路径','outline',{icon:'branch',iconOnly:true,extra:`aria-pressed="${showOutline}" aria-controls="outline"`})}</div><div class="branch-tools" role="group" aria-label="分支显示">${glassAction('收起分支','hide-selected',{extra:'aria-label="收起选中卡片及其分支"'})}${glassAction('显示分支','branch-menu',{extra:'aria-expanded="false" aria-controls="branch-picker"'})}${glassAction(focusId?'全部分支':'只看分支','focus-selected',{extra:`aria-pressed="${!!focusId}"`})}</div></div><div class="generation-setting"><span>生成</span><lg-segmented id="generation-count" value="${generationCount()}" label="每次生成数量" refraction="5">${[3,6,10].map(n=>`<button value="${n}">${n}</button>`).join('')}</lg-segmented><span>张</span></div></div></lg-panel></section>
     <div id="generation-progress" class="generation-progress glass" hidden></div>
   </main>`;
   $$('lg-button[aria-pressed]').forEach(host=>$('button',host)?.setAttribute('aria-pressed',host.getAttribute('aria-pressed')));
@@ -92,7 +92,7 @@ function renderWorkspace(){
     if(drag)cancelCanvasDrag();
     finishCardMotion();stopLayoutAnimation();
     switchExplorationMode(p,mode);openProject(p);persist();
-    toast(mode==='inspiration'?'已进入灵感模式，从题目生成方向。':'已进入梳理模式，从原题重新探索。');
+    toast(mode==='inspiration'?'已切换到灵感画布，梳理画布已保留。':'已切换到梳理画布，灵感画布已保留。');
   });
   $('#generation-count').addEventListener('change',event=>{
     if(pending){event.currentTarget.value=String(generationCount());toast('生成完成后即可调整数量。');return;}
@@ -653,10 +653,23 @@ document.addEventListener('keydown',e=>{
   if(e.defaultPrevented)return;
   if(e.target.closest('lg-segmented')&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Enter'].includes(e.key))return;
   if(e.code==='Space'&&e.target.closest('button,lg-button'))return;
-  const isTextEditing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
+  const isTextEditing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)||document.activeElement?.isContentEditable;
   if((e.metaKey||e.ctrlKey)&&e.key==='Enter'&&editing){e.preventDefault();saveInlineEdit();return;}
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'&&screen==='workspace'){e.preventDefault();$('#node-search').focus();return;}
   if(isTextEditing||modal)return;
+  if(screen==='workspace'&&!showShelf&&e.key==='Delete'&&canvasSelection.size){
+    e.preventDefault();
+    if(pending||editing){toast('请先完成或取消当前生成与编辑。');return;}
+    if(drag)cancelCanvasDrag();
+    finishCardMotion();stopLayoutAnimation();
+    let removed;commit(()=>{removed=removeSelectedNodes(p,[...canvasSelection]);});
+    if(focusId&&removed.has(focusId))focusId=null;
+    menu=null;fanPinned=null;connecting=null;assigning=null;
+    setCanvasSelection([...canvasSelection].filter(id=>!removed.has(id)));drawGraph();
+    $('#surface')?.focus({preventScroll:true});
+    toast(removed.size?`已删除 ${removed.size} 张卡片，未选中的卡片已保留。`:'最初的题目节点会保留。');return;
+  }
+
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='a'&&screen==='workspace'){e.preventDefault();setCanvasSelection(graphNodes().map(n=>n.id));menu=null;fanPinned=null;drawGraph();return;}
   if(screen==='workspace'&&canvasSelection.size&&!pending&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
     e.preventDefault();finishCardMotion();stopLayoutAnimation();const before=clone(p.nodes),amount=e.shiftKey?80:20,origins=branchPositions(p,[...canvasSelection]);

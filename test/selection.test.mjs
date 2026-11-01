@@ -35,3 +35,20 @@ test('多个分支一起移动时共享后代只移动一次，保持每张卡�
  for(const [id,pos] of origins){const node=p.nodes.find(n=>n.id===id);assert.equal(node.x,pos.x+80);assert.equal(node.y,pos.y-40);}
  assert.equal(p.nodes.find(n=>n.id===shared.id).parentIds.length,2);assert.deepEqual(p.edges,before.edges);validateProject(p);
 });
+
+
+test('框选删除只移除所选节点与相关连线，保护题目并保留共享节点及未选后代',async()=>{
+  const {removeSelectedNodes,validateProject,mergeNodes,favoriteNode,switchExplorationMode}=await import('../app/domain.js');
+  const p=createProject('原题'),root=rootOf(p);
+  const [a,b]=appendGenerated(p,root.id,'scene',[{title:'甲',rationale:'甲来源'},{title:'乙',rationale:'乙来源'}]);
+  const child=appendGenerated(p,a.id,'pain',[{title:'未选后代',rationale:'后代来源'}])[0];
+  const shared=mergeNodes(p,a.id,b.id,{title:'共享交集',rationale:'双方来源'});favoriteNode(p,a.id);
+  switchExplorationMode(p,'inspiration');switchExplorationMode(p,'organize');
+  const removed=removeSelectedNodes(p,[root.id,a.id,'missing']);assert.deepEqual([...removed],[a.id]);
+  assert.equal(rootOf(p).id,root.id);assert.deepEqual(p.nodes.find(n=>n.id===child.id).parentIds,[]);
+  assert.deepEqual(p.nodes.find(n=>n.id===shared.id).parentIds,[b.id]);assert.equal(p.nodes.find(n=>n.id===shared.id).merged,false);
+  assert.ok(p.edges.every(e=>e.from!==a.id&&e.to!==a.id));assert.equal(p.favorites.length,1);validateProject(p);
+  assert.equal(removeSelectedNodes(p,[root.id]).size,0);
+  removeSelectedNodes(p,[b.id,shared.id]);assert.ok(p.nodes.some(n=>n.id===child.id));validateProject(p);
+  switchExplorationMode(p,'inspiration');assert.equal(p.nodes.length,1);
+});
