@@ -520,7 +520,15 @@ function dispatch(action,el){
     case'close-menu':menu=null;drawNodePanel();break;
     case'expand':fanPinned=null;generate(id,el.dataset.kind);break;
     case'expand-same':{const n=p.nodes.find(v=>v.id===id);selectOnly(id);if(isInspiration()){generate(id,inspirationStep(p,n).targetKind);}else if(n.kind==='root'){menu=null;fanPinned=fanPinned===id?null:id;drawGraph();}else generate(id,n.kind);break;}
-    case'favorite':{let result;commit(()=>result=favoriteNode(p,id));drawGraph();toast(result?'已收藏':'已取消收藏','success',result?'⭐':'');break;}
+    case'favorite':{
+      let result;commit(()=>result=favoriteNode(p,id));drawGraph();
+      if(result){
+        if(!showShelf)toggleShelf();
+        const cards=$('.saved-cards');if(cards)cards.scrollLeft=cards.scrollWidth;
+        $('.shelf-pull')?.focus({preventScroll:true});
+      }
+      toast(result?'已收藏':'已取消收藏','success',result?'⭐':'');break;
+    }
     case'edit':beginInlineEdit(id);break;
     case'cancel-edit':{const id=editing?.id;editing=null;drawGraph();$(`[data-node="${id}"]`)?.focus({preventScroll:true});break;}
     case'hide-selected':if(selected&&current().kind!=='root'){commit(()=>current().hidden=true);selectOnly(rootOf(p).id);focusId=null;showHidden=false;menu=null;drawGraph();}break;
