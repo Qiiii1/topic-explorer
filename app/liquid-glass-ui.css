@@ -289,6 +289,6 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .modal-compact-header .modal-header .icon-button:hover{background:transparent;box-shadow:none;color:#637087;filter:none}
 
 /* Distinguish saved projects from the lighter glass window. */
-.modal-compact-header .project-picker .project-card{border:1px solid #cbd5e4;background:linear-gradient(145deg,#eaf0f8e6,#f2f5fbd9);box-shadow:0 7px 18px #30486512,0 2px 5px #30486508,0 1px 0 #ffffffed inset}
-.modal-compact-header .project-picker .project-card:hover{border-color:#aebfd7;background:linear-gradient(145deg,#e3ecf8f2,#edf3fcf2);box-shadow:0 9px 22px #3048651c,0 1px 0 #fff inset}
-@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .project-picker .project-card{background:#eaf0f8;border-color:#b4c3d8}}
+.modal-compact-header .project-picker .project-card{border:1px solid #cbd5e4;background:#ffffffed;box-shadow:0 7px 18px #30486512,0 2px 5px #30486508,0 1px 0 #ffffffed inset}
+.modal-compact-header .project-picker .project-card:hover{border-color:#aebfd7;background:#fff;box-shadow:0 9px 22px #3048651c,0 1px 0 #fff inset}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .project-picker .project-card{background:#fff;border-color:#b4c3d8}}
