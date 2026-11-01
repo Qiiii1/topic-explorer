@@ -369,8 +369,8 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 #nodes .kind-idea .card-surface h3{color:#435b6b}
 #nodes .idea-card .inspiration-summary{color:#6b7788}
 
-/* A defined warm rim makes the main topic the visual anchor. */
-#nodes .idea-card.kind-root .card-surface{border:2px solid #e5a05b;box-shadow:0 0 0 3px #f4bd7d26,0 9px 24px #a86d2c1f,0 1px 0 #fff2d6 inset}
-#nodes .idea-card.kind-root .card-surface::before{border-color:#fff1ce99;border-top-color:#fff8e6ed}
-#nodes .idea-card.kind-root.is-upstream:not(.is-selected) .card-surface{border-color:#dfa161;box-shadow:0 0 0 3px #f4bd7d26,0 9px 24px #a86d2c1f,0 1px 0 #fff2d6 inset}
-#nodes .idea-card.kind-root.is-selected .card-surface{border:3px solid #007aff;box-shadow:0 0 0 5px #007aff1c,0 9px 26px #007aff16,0 1px 0 #fff2d6 inset}
+/* Glass edges read through directional light rather than an orange outline. */
+#nodes .idea-card.kind-root .card-surface{border:1px solid #ffffff99;border-top-color:#fffffff2;border-left-color:#fff6e4d9;border-bottom-color:#d5ad7e70;border-right-color:#ead0ae8c;box-shadow:0 9px 24px #a86d2c1c,0 2px 5px #8d67300d,0 2px 0 #ffffffb3 inset,0 -2px 5px #e2ae6733 inset}
+#nodes .idea-card.kind-root .card-surface::before{inset:2px;border:1px solid transparent;border-top-color:#ffffffe6;border-left-color:#ffffff80;border-bottom-color:#ffffff33;background:linear-gradient(145deg,#ffffff40,transparent 52%)}
+#nodes .idea-card.kind-root.is-upstream:not(.is-selected) .card-surface{border-top-color:#fffffff2;border-left-color:#fff6e4d9;border-bottom-color:#d5ad7e70;border-right-color:#ead0ae8c;box-shadow:0 9px 24px #a86d2c1c,0 2px 0 #ffffffb3 inset,0 -2px 5px #e2ae6733 inset}
+#nodes .idea-card.kind-root.is-selected .card-surface{border:3px solid #007aff;box-shadow:0 0 0 5px #007aff1c,0 9px 26px #007aff16,0 1px 0 #ffffffb3 inset}
