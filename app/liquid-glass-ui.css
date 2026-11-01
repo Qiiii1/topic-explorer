@@ -288,3 +288,8 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .modal-compact-header .form-actions .button.primary{color:#204e5a;border-color:#ffffffb3;background:linear-gradient(145deg,#84e0ecee,#6edae8ee);box-shadow:0 5px 16px #4c9fab26,0 1px 0 #ffffffb3 inset,0 -1px 0 #459eac47 inset}
 .modal-compact-header .form-actions .button.primary:hover{color:#194752;background:linear-gradient(145deg,#79dce9f2,#61cfdef2);box-shadow:0 7px 20px #4c9fab30,0 1px 0 #ffffffb3 inset}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .form-actions .button.primary{background:#6edae8;color:#204e5a}}
+
+/* Warm apricot from the logo stands out gently against the cool glass window. */
+.modal-compact-header .form-actions .button.primary{color:#694026;border-color:#ffffffbd;background:linear-gradient(145deg,#ffc88fee,#fdb877ee);box-shadow:0 5px 16px #bc804226,0 1px 0 #ffffffb3 inset,0 -1px 0 #c58b5147 inset}
+.modal-compact-header .form-actions .button.primary:hover{color:#5d341e;background:linear-gradient(145deg,#ffc183f2,#f5ad69f2);box-shadow:0 7px 20px #bc804230,0 1px 0 #ffffffb3 inset}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){.modal-compact-header .form-actions .button.primary{background:#fdb877;color:#694026}}
