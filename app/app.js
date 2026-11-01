@@ -219,30 +219,33 @@ function toggleShelf(){
 function cancelCollectionFlight(){
   if(!collectionFlight)return;
   const state=collectionFlight;collectionFlight=null;
-  state.animation?.cancel();state.copy.remove();
-  state.target.classList.remove('is-collecting');state.target.style.removeProperty('animation');
+  state.animation?.cancel();
+  if(state.slot.isConnected)state.slot.replaceWith(state.target);else state.target.remove();
+  state.target.classList.remove('collection-flight');
+  state.target.setAttribute('style',state.style+';animation:none');
 }
-function flyToCollection(source,from,savedId){
+function flyToCollection(from,savedId){
   cancelCollectionFlight();
   const target=$(`[data-saved-card="${savedId}"]`),shelf=$('#shelf');
-  if(!source||!target||!shelf||!motionDuration(1)||!from.width||!from.height)return;
-  // The shelf is still descending. Remove its current translation to measure the landing spot.
-  target.style.animation='none';
+  if(!target||!shelf||!motionDuration(1)||!from?.width||!from.height)return;
+  const originalStyle=target.getAttribute('style')||'';
+  target.style.animation='none';target.style.transform='none';
   const rect=target.getBoundingClientRect(),shift=new DOMMatrix(getComputedStyle(shelf).transform).m42;
-  const to={left:rect.left,top:rect.top-shift,width:rect.width,height:rect.height};
-  const copy=document.createElement('div');
-  copy.className=`collection-flight idea-card kind-${source.dataset.kind||'idea'} inspiration-workspace`;
-  copy.setAttribute('aria-hidden','true');copy.inert=true;
-  copy.append(source);
-  copy.querySelectorAll('button,input,textarea,select,[id]').forEach(el=>el.remove());
-  document.body.append(copy);target.classList.add('is-collecting');
-  const transform=(left,top,width,height)=>`translate(${left}px,${top}px) scale(${width/CARD.width},${height/CARD.height})`;
-  const start=transform(from.left,from.top,from.width,from.height),end=transform(to.left,to.top,to.width,to.height);
-  const state={copy,target,animation:null};collectionFlight=state;
-  state.animation=copy.animate([
-    {transform:start,opacity:1,offset:0},
-    {transform:transform((from.left+to.left)/2,Math.max(76,Math.min(from.top,to.top)-36),(from.width+to.width)/2,(from.height+to.height)/2),opacity:1,offset:.55},
-    {transform:end,opacity:1,offset:1}
+  const width=target.offsetWidth,height=target.offsetHeight;
+  const origin=getComputedStyle(target).transformOrigin.split(' ').map(parseFloat);
+  const turn=getComputedStyle(target).getPropertyValue('--turn').trim()||'0deg';
+  const to={left:rect.left,top:rect.top-shift};
+  // Reserve the hanging slot while the actual saved card flies above the canvas.
+  const slot=document.createElement('div');slot.className='collection-slot';slot.setAttribute('aria-hidden','true');
+  Object.assign(slot.style,{width:width+'px',height:height+'px'});target.replaceWith(slot);
+  document.body.append(target);target.classList.add('collection-flight');
+  Object.assign(target.style,{position:'fixed',left:'0',top:'0',width:width+'px',height:height+'px',boxSizing:'border-box',margin:'0',transformOrigin:origin[0]+'px '+origin[1]+'px'});
+  const transform=(left,top,sx,sy,angle='0deg')=>`translate(${left-origin[0]*(1-sx)}px,${top-origin[1]*(1-sy)}px) scale(${sx},${sy}) rotate(${angle})`;
+  const state={target,slot,style:originalStyle,animation:null};collectionFlight=state;
+  state.animation=target.animate([
+    {transform:transform(from.left,from.top,from.width/width,from.height/height),offset:0},
+    {transform:transform((from.left+to.left)/2,Math.max(76,Math.min(from.top,to.top)-36),(from.width/width+1)/2,(from.height/height+1)/2),offset:.55},
+    {transform:transform(to.left,to.top,1,1,turn),offset:1}
   ],{duration:820,easing:'cubic-bezier(.22,.75,.25,1)',fill:'both'});
   const finish=()=>{if(collectionFlight===state)cancelCollectionFlight();};
   state.animation.finished.then(finish,finish);
@@ -556,13 +559,12 @@ function dispatch(action,el){
     case'expand':fanPinned=null;generate(id,el.dataset.kind);break;
     case'expand-same':{const n=p.nodes.find(v=>v.id===id);selectOnly(id);if(isInspiration()){generate(id,inspirationStep(p,n).targetKind);}else if(n.kind==='root'){menu=null;fanPinned=fanPinned===id?null:id;drawGraph();}else generate(id,n.kind);break;}
     case'favorite':{
-      const original=$(`[data-node="${id}"]`),from=original?.getBoundingClientRect(),surface=original?.querySelector('.card-surface')?.cloneNode(true);
-      if(surface)surface.dataset.kind=p.nodes.find(node=>node.id===id)?.kind;
+      const from=$(`[data-node="${id}"]`)?.getBoundingClientRect();
       let result;commit(()=>result=favoriteNode(p,id));drawGraph();
       if(result){
         if(!showShelf)toggleShelf();
         const cards=$('.saved-cards');if(cards)cards.scrollLeft=cards.scrollWidth;
-        flyToCollection(surface,from,result.id);
+        flyToCollection(from,result.id);
         $('.shelf-pull')?.focus({preventScroll:true});
       }
       toast(result?'已收藏':'已取消收藏','success',result?'⭐':'');break;

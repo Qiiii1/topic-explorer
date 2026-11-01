@@ -236,11 +236,6 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .project-title-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .project-title .small-chevron{display:block;flex:none;width:14px;height:14px;margin:0;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 
-/* A visual-only duplicate flies from the canvas into its saved snapshot. */
-.collection-flight.idea-card{position:fixed;left:0;top:0;width:244px;height:154px;z-index:90;pointer-events:none!important;transform-origin:0 0;opacity:1;will-change:transform}
-.collection-flight .card-surface{width:100%;height:100%;box-sizing:border-box;box-shadow:0 16px 44px #23334f2b;overflow:hidden}
-.collection-flight.kind-direction .card-surface{background:#f9f6fe}
-.collection-flight.kind-idea .card-surface{background:#f4faf7}
-.collection-flight .card-surface h3{font-size:15px;line-height:1.45}
-.collection-flight .card-surface .inspiration-summary{font-size:11px;line-height:1.5;max-height:33px;overflow:hidden;color:#6e7c8f}
-.saved-card.is-collecting{visibility:hidden;pointer-events:none}
+/* The saved card itself flies and remains in its hanging slot after landing. */
+.saved-card.collection-flight{z-index:90;pointer-events:none!important;transition:none;will-change:transform}
+.collection-slot{flex:none;visibility:hidden;pointer-events:none}
