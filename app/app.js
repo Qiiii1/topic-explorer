@@ -240,13 +240,16 @@ function flyToCollection(from,savedId){
   Object.assign(slot.style,{width:width+'px',height:height+'px'});target.replaceWith(slot);
   document.body.append(target);target.classList.add('collection-flight');
   Object.assign(target.style,{position:'fixed',left:'0',top:'0',width:width+'px',height:height+'px',boxSizing:'border-box',margin:'0',transformOrigin:origin[0]+'px '+origin[1]+'px'});
-  const transform=(left,top,sx,sy,angle='0deg')=>`translate(${left-origin[0]*(1-sx)}px,${top-origin[1]*(1-sy)}px) scale(${sx},${sy}) rotate(${angle})`;
+  const transform=(left,top,sx,sy,angle='0deg')=>`translate3d(${left-origin[0]*(1-sx)}px,${top-origin[1]*(1-sy)}px,0) scale(${sx},${sy}) rotate(${angle})`;
   const state={target,slot,style:originalStyle,animation:null};collectionFlight=state;
-  state.animation=target.animate([
-    {transform:transform(from.left,from.top,from.width/width,from.height/height),offset:0},
-    {transform:transform((from.left+to.left)/2,Math.max(76,Math.min(from.top,to.top)-36),(from.width/width+1)/2,(from.height/height+1)/2),offset:.55},
-    {transform:transform(to.left,to.top,1,1,turn),offset:1}
-  ],{duration:820,easing:'cubic-bezier(.22,.75,.25,1)',fill:'both'});
+  // Sample one continuous curve: the old middle waypoint introduced a visible sharp turn.
+  const dx=to.left-from.left,dy=to.top-from.top,arc=Math.min(60,Math.hypot(dx,dy)*.12);
+  const c1={x:from.left+dx*.2,y:from.top+dy*.35-arc},c2={x:from.left+dx*.75,y:to.top-arc};
+  const frames=Array.from({length:41},(_,i)=>{
+    const t=i/40,u=1-t,x=u*u*u*from.left+3*u*u*t*c1.x+3*u*t*t*c2.x+t*t*t*to.left,y=u*u*u*from.top+3*u*u*t*c1.y+3*u*t*t*c2.y+t*t*t*to.top;
+    return {offset:t,transform:transform(x,y,from.width/width+(1-from.width/width)*t,from.height/height+(1-from.height/height)*t,parseFloat(turn)*t+'deg')};
+  });
+  state.animation=target.animate(frames,{duration:760,easing:'cubic-bezier(.2,.6,.3,1)',fill:'both'});
   const finish=()=>{if(collectionFlight===state)cancelCollectionFlight();};
   state.animation.finished.then(finish,finish);
 }
@@ -560,7 +563,11 @@ function dispatch(action,el){
     case'expand-same':{const n=p.nodes.find(v=>v.id===id);selectOnly(id);if(isInspiration()){generate(id,inspirationStep(p,n).targetKind);}else if(n.kind==='root'){menu=null;fanPinned=fanPinned===id?null:id;drawGraph();}else generate(id,n.kind);break;}
     case'favorite':{
       const from=$(`[data-node="${id}"]`)?.getBoundingClientRect();
-      let result;commit(()=>result=favoriteNode(p,id));drawGraph();
+      let result;commit(()=>result=favoriteNode(p,id));
+      const star=$(`[data-node="${id}"] .card-star`);
+      if(star){star.classList.toggle('is-saved',!!result);star.setAttribute('aria-pressed',String(!!result));star.setAttribute('aria-label',`${result?'取消收藏':'收藏完整路径'}：${p.nodes.find(node=>node.id===id)?.title||''}`);}
+      if(!result||showShelf)drawShelf();
+      updatePull();
       if(result){
         if(!showShelf)toggleShelf();
         const cards=$('.saved-cards');if(cards)cards.scrollLeft=cards.scrollWidth;

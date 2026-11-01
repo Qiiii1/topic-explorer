@@ -237,5 +237,5 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 .project-title .small-chevron{display:block;flex:none;width:14px;height:14px;margin:0;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 
 /* The saved card itself flies and remains in its hanging slot after landing. */
-.saved-card.collection-flight{z-index:90;pointer-events:none!important;transition:none;will-change:transform}
+.saved-card.collection-flight{z-index:90;pointer-events:none!important;transition:none;will-change:transform;backface-visibility:hidden}
 .collection-slot{flex:none;visibility:hidden;pointer-events:none}
