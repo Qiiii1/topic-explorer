@@ -19,6 +19,8 @@
 
 `npm run build:pages` 只将公开的 `TOPIC_API_BASE_URL` 写入网页。地址为空时，网页仍保持托管模式并显示暂未连接，不要求访客输入密钥。原有 `npm start` 本地开发服务仍支持本机配置自己的模型。
 
+GitHub 的 `Verify hosted API` 工作流检查公开状态和跨域预检，不调用模型。手动运行时勾选 `real_generation`，会用“钟”这个公开示例发起一次真实灵感生成，验证服务端密钥和模型协议；日志仅输出成功状态和卡片数量。仓库变量 `TOPIC_API_BASE_URL` 当前指向 `https://topic-explorer-api.topic-explorer-web-prototype.workers.dev`。
+
 ## 当前范围
 
 这一步只接通服务端模型调用，支持最新版本的细化、组合、灵感方向、方案和子方案协议。网页不会向访客提供站点密钥的查看、更换或清除入口；服务端不会保存画布内容。当前没有登录系统和每账号 30 次额度，后续需要在 `/api/generate` 前接入账号验证与持久额度记录。取消或网络中断可能无法撤销已经发生的模型计费。

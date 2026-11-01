@@ -8,6 +8,11 @@ on:
       - 'wrangler.jsonc'
       - '.github/workflows/verify-backend.yml'
   workflow_dispatch:
+    inputs:
+      real_generation:
+        description: 'Make one real model request using the public clock example'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -20,6 +25,9 @@ jobs:
     env:
       API_BASE_URL: ${{ vars.TOPIC_API_BASE_URL }}
     steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
@@ -43,4 +51,21 @@ jobs:
           assert.match(preflight.headers.get('Access-Control-Allow-Headers'),/Content-Type/i);
           assert.equal(status.mode,'live','Cloudflare model secret/configuration is not ready');
           console.log('Public API and GitHub Pages CORS are ready. No model request was made.');
+          JS
+      - name: Verify one real inspiration generation
+        if: github.event_name == 'workflow_dispatch' && inputs.real_generation
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {createProject,rootOf} from './app/domain.js';
+          import {inspirationInput} from './app/inspiration.js';
+          const project=createProject('钟','部署验证示例');
+          const input=inspirationInput(project,rootOf(project));
+          const response=await fetch(new URL('/api/generate',process.env.API_BASE_URL),{method:'POST',headers:{Origin:'https://qiiii1.github.io','Content-Type':'application/json'},body:JSON.stringify(input),signal:AbortSignal.timeout(105000)});
+          const result=await response.json();
+          assert.equal(response.status,200,result.error||'Model generation failed');
+          assert.equal(result.mode,'live');
+          assert.ok(result.nodes.length>0&&result.nodes.length<=input.count);
+          assert.ok(result.nodes.every(n=>n.title&&n.description&&n.meta?.core&&n.meta?.method));
+          console.log(JSON.stringify({mode:result.mode,generated:result.nodes.length,stage:input.action}));
           JS
