@@ -1,22 +1,68 @@
-# 有点想法 · 网页交互原型
+<p align="center">
+  <img src="app/assets/brand/logo.svg" width="128" alt="有点想法 Logo">
+</p>
+
+# 有点想法 · 选题与灵感画布
 
 [![Checks](https://github.com/Qiiii1/topic-explorer/actions/workflows/ci.yml/badge.svg)](https://github.com/Qiiii1/topic-explorer/actions/workflows/ci.yml)
+[![Publish website](https://github.com/Qiiii1/topic-explorer/actions/workflows/pages.yml/badge.svg)](https://github.com/Qiiii1/topic-explorer/actions/workflows/pages.yml)
 
-从一个粗想法出发，沿场景、痛点、人群逐步细化；每个节点保留上层关联与理由。基于 Figma 低保真页 `352:2`，采用浅色 Apple 风格界面。
+面向设计项目与研究选题的 AI 画布。从一个粗想法出发，逐步细化问题，或通过跨域组合探索新方向；每张卡片保留来源和关联理由，让思路看得见来路。
 
-## 在线访问
+**[在线使用](https://qiiii1.github.io/topic-explorer/) · [查看示例](https://qiiii1.github.io/topic-explorer/?demo=1)**
 
-[打开有点想法](https://qiiii1.github.io/topic-explorer/) · [查看示例](https://qiiii1.github.io/topic-explorer/?demo=1)
+## 两种探索方式
 
-此分支的在线版由 GitHub Pages 托管网页，Cloudflare Workers 提供 AI 生成接口。域名继续使用 GitHub 的地址；模型 API Key 仅在 Cloudflare Secret 中配置，访客无需填写或持有站点密钥。部署步骤见 [Cloudflare 配置](cloudflare/README.md)。尚未配置后端时仍可浏览、编辑和导出项目。
+| 模式 | 适合做什么 | 探索路径 |
+| --- | --- | --- |
+| 灵感模式 | 为一个题目发现不同跨度的组合与方案 | 题目 → 方向 → 方案 → 子方案 |
+| 梳理模式 | 将已有想法收敛到具体问题 | 沿场景、人群、痛点细化；连接同类卡片提取交集 |
 
-项目仍自动保存在访问者自己的浏览器中；分享链接包含一份可编辑的项目快照，接收者通过同一个托管接口生成。在线版和本地版的浏览器存储相互独立，可通过 JSON 导入导出迁移项目。服务端暂不保存项目内容，账号和 30 次额度尚未接入。
+新建探索默认进入灵感模式，底部胶囊可切换模式。两种模式拥有独立画布，保留各自的节点、连线、位置、收藏与生成数量；首次切换时从最初题目开始，再次切换则恢复已有内容。整个项目的 JSON 导出和分享快照会包含两份画布。
 
-![选题探索画布](https://raw.githubusercontent.com/Qiiii1/topic-explorer/main/reference/v3-cards.png)
+## 怎么用
 
-## 运行
+1. 点击「新建探索」，写下一两句粗想法；已有项目可通过「打开项目」恢复或导入。
+2. 点击卡片下方的加号继续生成，每次可选 3、6、10 张。梳理模式可从悬浮的维度卡片中选择场景、人群或痛点。
+3. 用卡片左上角的编辑按钮修改标题、描述和关联理由，修改后的内容会影响下一次生成。
+4. 选中卡片查看来路与直接下一级；收藏感兴趣的方向，再导出或分享。
 
-需要 Node.js 22 或更新版本，推荐使用 `.nvmrc` 指定的 Node 22。项目没有第三方运行依赖。
+示例画布使用预置卡片，打开示例不会调用模型；继续生成需要真实 AI 服务。
+
+## 当前功能
+
+- **保留探索路径**：高亮完整上游和直接下一级；场景连线按类别分色，探索路径按场景、人物、痛点归类。
+- **组合卡片**：梳理模式下，将连接点拖到另一张同类卡片，生成保留两侧条件的交集；可连接对象会高亮。
+- **自动布局**：生成前显示扫光占位卡片，预留附近空间并疏散拥挤区域；拖动分支时，下级卡片一起移动；底部支持按主线一键整理和分支显隐。
+- **收藏方向**：保存当前节点、全部上游路径和理由的快照。拉下顶部绳子查看，点击卡片翻转放大，点击星标取消收藏。
+- **框选与输出**：支持多选、整体移动、删除，以及导出整个项目或选区；格式包括 JSON、Markdown、PNG，亦可打印为 PDF。
+- **本地保存与分享**：自动保存在浏览器，分享链接打开后形成可独立编辑的项目副本。
+- **界面与动效**：磨砂玻璃卡片、随演进深度渐淡的配色、液态玻璃工具栏；首页 Logo 自动循环，点击可暂停或继续，系统开启减少动态效果时显示静态 Logo。
+
+### 画布操作
+
+| 操作 | 方式 |
+| --- | --- |
+| 框选 | 拖动空白处；Shift 拖框加选 |
+| 增减选择 | Shift 点击卡片 |
+| 全选 / 清空选择 | ⌘ / Ctrl + A；Esc |
+| 平移 | 触控板双指滑动；空格 + 拖动；鼠标中键拖动 |
+| 缩放 | 触控板捏合；Command + 鼠标滚轮；底部缩放按钮 |
+| 微调位置 | 方向键 |
+| 删除所选节点 | Delete / Backspace；题目节点保留 |
+| 撤销 / 重做 | ⌘ / Ctrl + Z；⌘ / Ctrl + Shift + Z |
+
+撤销记录包含本次会话的 AI 生成、组合生成和节点删除；移动、整理、编辑与收藏不会占用记录。删除所选卡片时，未选中的后代和共享节点保留，失去上层的节点可作为独立想法继续使用。
+
+### 保存与分享
+
+项目存储在当前浏览器的 `localStorage`，服务端不保存画布。线上网页、本地服务和不同浏览器的存储相互独立，可用 JSON 导入导出迁移；清理网站数据前请先导出。
+
+分享链接包含项目内容快照，不包含模型密钥。接收者获得独立副本，双方后续编辑互不影响。选区导出只包含选中的节点及内部连线；选区 JSON 可重新导入为新探索。
+
+## 本地运行
+
+需要 Node.js 22 或更新版本，推荐使用 `.nvmrc` 指定的 Node 22。
 
 ```sh
 git clone https://github.com/Qiiii1/topic-explorer.git
@@ -25,21 +71,23 @@ npm ci
 npm start
 ```
 
-已经下载或解压代码时，在项目目录执行即可：
+打开 **http://127.0.0.1:4178/**。请通过本地服务访问，直接双击 HTML 文件不能正常运行模型接口和模块。
+
+指定其他端口：
 
 ```sh
-npm start
+npm start -- --port 4180
 ```
 
-打开 http://127.0.0.1:4178 。请通过这个地址打开，直接双击 HTML 文件无法运行模型接口和模块。
+### 配置本地 AI
 
-## 配置真实 AI
+推荐使用环境变量：
 
-Cloudflare 托管版通过服务端配置，详见 [部署说明](cloudflare/README.md)。以下配置方式用于 `npm start` 启动的本机开发服务：点击右上角「连接 AI」，填写兼容 Chat Completions 的服务基础地址、模型名称和 API Key。例如填写服务商提供的 `https://…/v1` 基础地址；请求会发送到 `/chat/completions`。服务需要支持 JSON 输出格式。
+```sh
+cp .env.example .env
+```
 
-通过页面填写的密钥仅保留在本地 Node 服务进程内存，关闭后清除；不会写入项目文件、分享链接或浏览器本地存储。当前配置由本机打开的原型页面共用。首页示例是静态预置内容，后续生成仍需连接真实模型。当前分支、项目背景和上游路径会发送到你配置的模型服务。
-
-也可以使用环境变量，或复制 `.env.example` 为 `.env`，填入服务商提供的模型 ID 和密钥，再运行：
+编辑 `.env`，填写模型 ID 和 API Key，再启动：
 
 ```sh
 npm run start:env
@@ -47,76 +95,82 @@ npm run start:env
 
 | 变量 | 用途 | 默认值 |
 | --- | --- | --- |
-| `PORT` | 本地网页端口 | `4178` |
-| `TOPIC_AI_BASE_URL` | 模型 API 基础地址 | `https://api.deepseek.com` |
-| `TOPIC_AI_MODEL` | 模型 ID，按服务商当前模型列表填写 | 空 |
+| `PORT` | 本地服务端口 | `4178` |
+| `TOPIC_AI_BASE_URL` | Chat Completions 服务基础地址 | `https://api.deepseek.com` |
+| `TOPIC_AI_MODEL` | 服务商提供的模型 ID | 空 |
 | `TOPIC_AI_API_KEY` | 模型服务密钥 | 空 |
 
-模型和密钥都填入后才会在启动时加载模型配置；留空可在网页中配置。`npm start` 使用系统环境变量，`npm run start:env` 额外读取本机 `.env`。`.env` 已被 Git 忽略，它包含手动保存的本地配置，请自行保管；仓库只提交不含密钥的示例文件。
+服务需要兼容 Chat Completions 并支持 JSON 输出。基础地址不用填写 `/chat/completions` 后缀。
 
-本地版固定监听本机 `127.0.0.1`。临时修改端口可以用 `npm start -- --port 4180`。本地版通过 Node 服务转发 AI 请求；在线版调用 Cloudflare 后端，两者共用请求格式和结果校验。
+本地未配置模型时，首次生成会弹出模型设置；右上角不再显示 AI 配置入口。通过页面填写的密钥只保存在本地 Node 服务进程内存，关闭后清除；`.env` 中的配置由使用者自行保存，该文件已被 Git 忽略。`npm start` 读取系统环境变量，`npm run start:env` 额外读取 `.env`。
 
-## 可以体验
+## 技术路径与部署
 
-- 首页展示品牌 Logo，保留「新建探索」「打开项目」两个入口。点击打开项目后，用弹窗卡片选择本机保存的探索，也可以从文件导入。画布左上角与网页图标使用相同的品牌 Logo。
-- 悬停卡片，在上方展开的场景 / 痛点 / 人群卡片中选择细化维度，数量 3、6、10；支持键盘和触屏，保留取消生成与错误反馈。
-- 生成时先显示带扫光动效的占位卡片，拥挤的来源先带分支向外避让，再在其周围预留 3 / 6 / 10 个位置，周围卡片就近让位；取消或失败会恢复原布局，完成后沿用预留位置。
-- 自动疏散拥挤区域，增加卡片之间的留白；新生成卡片仍围绕来源分布，周围卡片向外让位，避免聚在一小块区域。
-- 拖动空白处框选，Shift 点击增减选择、Shift 拖框加选；⌘/Ctrl+A 全选可见卡片，Esc 清空选择。多选卡片可以一起移动，方向键可微调；移动不占用撤销记录。
-- 默认选择模式，拖动空白处框选；按住空格或鼠标中键拖动画布。支持缩放、搜索和路径大纲。探索路径按场景、人物、痛点分组；同类场景跨分支使用相同连线颜色，其他维度沿用最近的场景分类。
-- 拖动分支卡片时，全部下级（含隐藏卡片和共享交集）随之整体移动，保持相对位置和全部来源连线；周围卡片连锁避让，位移会保留，不占用撤销记录。
-- 底部「一键整理」按主线分组重排画布，保留独立想法和共享节点；场景、痛点、人群分别统一使用淡紫、浅橙、浅绿配色。
-- 选中方向后，上游链路显示加粗连线、方向箭头与流动提示。
-- 卡片左上角的编辑按钮可直接修改卡片内容、描述与关联理由，场景分类可人工更正；保存后的内容会用于下一次 AI 生成。编辑选题中心也会同步更新项目背景。底部保留玻璃画布工具栏，提供收起分支、逐条恢复或全部显示、聚焦分支及生成数量设置。
-- 选中卡片时，强调完整上游路径和直接下一级，孙级及旁支降低透明度。
-- 拖动右侧连接点到另一张同类卡片，或在操作面板选择「关联同类卡片」，由 AI 提取交集。连接时可组合的卡片高亮并显示标记，其余卡片降低透明度；没有合理交集时保留原卡片。
-- 星标收藏节点和全部上游路径的快照；拉动页面上方中央的绳子展示收藏，卡片随绳子降下，直接悬挂在变暗的画布上；点击收藏卡片会翻转、放大到中央，关闭时返回原位。收藏卡片右上角的星标可直接取消收藏；“选择导出”开启多选，保留复制与多选导出。
-- 加号随卡片维度配色；收藏使用金色并通过实心星标区分状态。顶部收藏入口使用连续细线和拉环。
-- 撤销 / 重做支持本次会话的 AI 生成、组合生成和节点删除；拖动、整理、编辑和收藏都会保留。浏览器自动保存；JSON、Markdown、PNG 导出与打印为 PDF。导出可切换「整个项目」和「选中的卡片」。
-- 选区导出只包含所选卡片和内部连线，不附带未选中的来源、收藏或项目背景；选区 JSON 可以重新导入为新的探索，缺少原选题中心时会创建新的中心。
-- 分享链接包含当前项目副本。在线版可直接跨设备打开；本地版接收者需要能够访问同一个服务，也可以交换 JSON 文件。
+前端使用原生 JavaScript、DOM 卡片和 SVG 连线；线上网页由 GitHub Pages 托管，Cloudflare Workers 转发 AI 请求并校验结果。模型调用支持 DeepSeek 等兼容 Chat Completions 的服务。
 
-本版没有登录、云同步、多人实时协作、论文检索或研究创新性判断。生成结果作为待调研假设使用。
-
-## 梳理模式与灵感模式
-
-底部独立胶囊从左到右为「灵感模式 / 梳理模式」；新建探索默认进入灵感模式，打开已有项目保留上次选择。梳理与灵感各自保留独立画布，节点、连线、位置、收藏、背景与数量互不混用；首次进入另一模式时从最初题目开始，再次切回则恢复该模式的已有探索。两份画布都随项目自动保存，并包含在整个项目的 JSON 导出与分享副本中。切换会取消当前生成，旧结果不会写入另一模式。
-
-灵感模式按「题目 → 方向 → 方案 → 子方案」探索，卡片不再提供场景、痛点、人群选项。所有阶段的生成数量均为 3、6、10，默认 3。反复点击同一方向追加并列方案，点击方案则沿父子关系演进。
-
-框选或 Shift 多选后按 Delete 或 Backspace，也可点击选区工具条的「删除选中」，直接删除选中节点与相关连线，题目节点始终保留；未选中的后代与共享节点不会连带删除，失去上层的节点可作为独立想法保留。删除后可按 Ctrl/⌘+Z 或底部左箭头恢复节点与连线，Ctrl/⌘+Shift+Z 或右箭头可重新删除；生成与删除按操作顺序撤销。输入框内编辑文字时不会触发画布删除。已有收藏快照保持原样，另一模式的节点也不受影响。
-
-生成内容规则来自个人 `you-dian-yi-si`（有点意思）skill，规则快照在 `app/inspiration-rules.js`，网页阶段协议、校验与图数据适配在 `app/inspiration.js`。本地与浏览器直连共用这些规则，部署后的网页无需访问本机 skill 目录。每次请求保留完整题目、明确项目条件、当前节点、祖先路径和已有方向/方案，用于约束与去重；方向使用适用的方法，方案保留方向核心，子方案保存保留点与主要变化。简短后台依据随节点保存并支持 JSON 导入导出，界面只展示标题、构想与关联。允许质量不足时少生成，不承诺绝对原创。
-
-## 本地液态玻璃预览
-
-底部面板、生成数量和操作按钮使用本地的 `liquid-glass-web` 组件，无需外部 CDN。面板折射已知的画布背景，分段控件折射自己的标签副本；卡片文字保持原样。组件来源和 MIT 许可保存在 `app/vendor/liquid-glass/LICENSE.txt`。
-
-触控板双指上下、左右滑动平移画布，捏合或按住 Command＋滚轮缩放；缩放围绕手势位置，灵敏度按视口大小轻调。支持捏合产生的 wheel 事件与 Safari 原生手势。
-
-## 检查
-
-```sh
-npm run validate
+```mermaid
+flowchart LR
+    Web["浏览器画布 · GitHub Pages"] -->|"项目背景 / 当前节点 / 上游路径 / 已有结果"| API["Cloudflare Workers"]
+    API -->|"规则与上下文 / 服务端密钥"| Model["DeepSeek / Chat Completions"]
+    Model -->|"结构化 JSON"| API
+    API -->|"校验后的卡片与理由"| Web
+    Web --> Store["localStorage · 本地项目"]
 ```
 
-测试覆盖卡片编辑与下一次模型输入、场景分类继承及人工更正、直接下级识别、拥挤来源避让与取消恢复、独立卡片归属、循环防护、双来源路径、收藏快照、分支删除、多分支整体移动、主线整理、自动疏散、3/6/10 张候选就近预留布局、框选命中、选区导出范围和重新导入，以及请求转发格式、生成数量、接口配置清除、模型名称校验和密钥隔离。接口测试使用 Node 请求流、模拟响应和隔离的 Cloudflare workerd 运行时，不调用外部模型。
+每次生成会携带题目、明确条件、当前卡片、上游路径与已有结果。梳理模式按目标维度细化或提取交集；灵感模式按阶段继承方向核心、约束变化并减少重复。生成失败或取消后恢复预留布局，已有卡片保留。
 
-推送到 `main` 或提交 Pull Request 后，[GitHub Actions](https://github.com/Qiiii1/topic-explorer/actions) 会在 Node 22、24 上检查语法、运行测试并检查打包内容，无需配置模型密钥。工作流采用 [GitHub 官方 Node.js 检查方式](https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs)。
+### 发布到 GitHub Pages + Cloudflare
 
-开发时可以运行 `npm run dev`，服务端文件修改后会自动重启；进程内存中的模型配置也会清除。生成可分发的源码包可运行 `npm pack`；打包范围只包含应用、服务、测试、说明、许可证及配置示例，排除本地密钥和参考截图。该命令不发布到 npm。
+完整步骤见 **[Cloudflare 部署说明](cloudflare/README.md)**。
 
-参考截图及视觉说明在 `reference/`。图标使用 Figma 原稿导出的控件和 [Tabler Icons](https://tabler.io/icons)（MIT）；源文件随原型保留。
+| 配置 | 放在哪里 | 用途 |
+| --- | --- | --- |
+| `TOPIC_AI_API_KEY` | Cloudflare **Secret** | 模型密钥，仅服务端读取 |
+| `TOPIC_AI_BASE_URL`、`TOPIC_AI_MODEL` | Cloudflare 变量 | 模型接口与模型 ID |
+| `TOPIC_WEB_ORIGINS` | Cloudflare 变量 | 允许的网页来源，如 `https://qiiii1.github.io` |
+| `TOPIC_API_BASE_URL` | GitHub Actions 仓库 **Variable** | 公开的 Worker 域名，不带 `/api` 路径 |
 
-## 发布
+在线访客直接使用托管的 AI 接口，页面不提供站点密钥配置入口。
 
 ```sh
+npm run cf:deploy
 npm run build:pages
 ```
 
-该命令将浏览器版输出到 `dist/`，不包含 Node 服务、测试、参考资料、环境变量或密钥。相对资源路径支持 GitHub Pages 的 `/topic-explorer/` 项目子目录。
+先部署 Worker 并配置模型，再设置公开的后端地址、发布网页。推送 `main` 后，[Publish website](https://github.com/Qiiii1/topic-explorer/actions/workflows/pages.yml) 会自动检查、构建并发布。GitHub Pages 使用 GitHub Actions 作为发布来源，不需要将模型密钥放入 GitHub。
 
-推送 `main` 后，`.github/workflows/pages.yml` 会检查、构建并发布到 GitHub Pages；部署状态见 [Publish website](https://github.com/Qiiii1/topic-explorer/actions/workflows/pages.yml)。仓库的 Settings → Pages 使用 GitHub Actions，无需设置模型密钥或其他部署 Secrets。
+`build:pages` 输出 `dist/`，只复制网页资源并注入公开的后端地址，不打包服务端密钥。CSS 和 JavaScript 模块会附带统一的内容版本标识，避免发布后继续加载旧资源。
+
+## 开发与检查
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm run dev` | 监听本地服务代码并自动重启 |
+| `npm run validate` | 语法检查与行为测试，不调用真实模型 |
+| `npm run cf:dev` | 在本机 `4183` 端口运行 Worker |
+| `npm run cf:check` | 检查 Worker 打包，不上传 |
+| `npm run build:pages` | 构建 GitHub Pages 网页 |
+| `npm pack` | 生成源码包，不发布到 npm |
+
+[GitHub Actions](https://github.com/Qiiii1/topic-explorer/actions) 在 Node 22、24 上检查语法、运行测试、构建网页、检查 Worker 打包和源码包内容。
+
+主要代码：
+
+| 文件 | 职责 |
+| --- | --- |
+| [app/app.js](app/app.js) | 页面、画布交互、收藏与导出 |
+| [app/domain.js](app/domain.js) | 节点关系、布局、分支与项目数据 |
+| [app/inspiration.js](app/inspiration.js)、[app/inspiration-rules.js](app/inspiration-rules.js) | 灵感阶段协议与规则快照 |
+| [app/model-protocol.js](app/model-protocol.js) | 模型请求构造与结果校验 |
+| [app/home-logo.js](app/home-logo.js) | 首页 SVG Logo 循环动画 |
+| [cloudflare/worker.js](cloudflare/worker.js) | 托管 AI 接口 |
+| [scripts/build-pages.mjs](scripts/build-pages.mjs) | 网页构建、后端地址注入与资源版本 |
+
+液态玻璃组件随项目本地打包，许可见 [liquid-glass-web / MIT](app/vendor/liquid-glass/LICENSE.txt)。图标来源包括 Figma 原稿和 [Tabler Icons](https://tabler.io/icons)。
+
+## 当前范围
+
+`main` 尚未接入账号登录、每账号 30 次免费额度、云同步或多人实时协作。工具用于探索和整理待调研的想法，不提供论文检索或学术创新性判定。
 
 ## License
 
