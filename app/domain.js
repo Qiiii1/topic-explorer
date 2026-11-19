@@ -347,14 +347,22 @@ export function validateProject(value) {
   // Earlier UI-only mode switches kept organizer nodes; preserve them until the user switches again.
   if(project.explorationMode==='inspiration'&&project.nodes.some(n=>['scene','pain','people'].includes(n.kind)))project.explorationMode='organize';
   if(project.inspirationCount===1)project.inspirationCount=3;
+  if(project.inheritedContext!=null&&typeof project.inheritedContext!=='string')throw new Error('来源上下文格式不正确');
+  function checkedCanvas(canvas,mode){
+    if(!['organize','inspiration'].includes(mode)||!canvas||typeof canvas!=='object')throw new Error('模式画布格式不正确');
+    const checked=validateProject({...canvas,id:project.id,title:project.title,version:VERSION,explorationMode:mode,modeWorkspaces:undefined,otherCanvases:undefined});
+    if(checked.explorationMode!==mode)throw new Error('模式画布包含不匹配的节点类型');
+    return canvasSnapshot(checked);
+  }
+  if(project.otherCanvases!==undefined){
+    if(!Array.isArray(project.otherCanvases))throw new Error('分支画布格式不正确');
+    project.otherCanvases=project.otherCanvases.map(entry=>({mode:entry.mode,canvas:checkedCanvas(entry.canvas,entry.mode)}));
+  }
   if(project.modeWorkspaces!==undefined){
     if(!project.modeWorkspaces||typeof project.modeWorkspaces!=='object'||Array.isArray(project.modeWorkspaces))throw new Error('模式画布格式不正确');
     const saved={};
     for(const [mode,canvas] of Object.entries(project.modeWorkspaces)){
-      if(!['organize','inspiration'].includes(mode)||!canvas||typeof canvas!=='object')throw new Error('模式画布格式不正确');
-      const checked=validateProject({...project,...canvas,explorationMode:mode,modeWorkspaces:undefined});
-      if(checked.explorationMode!==mode)throw new Error('模式画布包含不匹配的节点类型');
-      saved[mode]=canvasSnapshot(checked);
+      saved[mode]=checkedCanvas(canvas,mode);
     }
     project.modeWorkspaces=saved;
   }
@@ -377,7 +385,7 @@ export function toMarkdown(project, saved = null) {
 
 // Store only canvas fields: inactive modes cannot contain nested projects or other workspaces.
 function canvasSnapshot(project) {
-  return clone({nodes:project.nodes,edges:project.edges,favorites:project.favorites,description:project.description,context:project.context||'',generationCount:project.generationCount||3,inspirationCount:[3,6,10].includes(project.inspirationCount)?project.inspirationCount:3});
+  return clone({inheritedContext:project.inheritedContext||'',nodes:project.nodes,edges:project.edges,favorites:project.favorites,description:project.description,context:project.context||'',generationCount:project.generationCount||3,inspirationCount:[3,6,10].includes(project.inspirationCount)?project.inspirationCount:3});
 }
 export function switchExplorationMode(project, mode) {
   if(!['organize','inspiration'].includes(mode))throw new Error('未知探索模式');
@@ -388,11 +396,51 @@ export function switchExplorationMode(project, mode) {
   const workspaces=project.modeWorkspaces||{};
   workspaces[previous]=canvasSnapshot(project);
   const next=workspaces[mode]||{nodes:[{...clone(root),title:project.initialBrief.slice(0,42),description:project.initialBrief,parentIds:[],x:0,y:0,hidden:false}],edges:[],favorites:[],description:project.initialBrief,context:project.context||'',generationCount:3,inspirationCount:3};
-  Object.assign(project,clone(next));
+  Object.assign(project,{inheritedContext:''},clone(next));
   delete workspaces[mode];
   project.modeWorkspaces=workspaces;project.explorationMode=mode;
   project.updatedAt=new Date().toISOString();
   return true;
+}
+
+// The dock remembers the last canvas in each mode. Other centres remain available by root ID.
+export function modeCanvases(project){
+  return [project,...(project.otherCanvases||[]).filter(entry=>entry.mode===project.explorationMode).map(entry=>entry.canvas)];
+}
+export function selectModeCanvas(project,rootId){
+  const index=project.otherCanvases?.findIndex(entry=>entry.mode===project.explorationMode&&rootOf(entry.canvas).id===rootId)??-1;
+  if(index<0)return;
+  const entry=project.otherCanvases[index],next=entry.canvas;
+  entry.canvas=canvasSnapshot(project);
+  Object.assign(project,next);
+}
+export function transferCard(project,nodeId){
+  const node=project.nodes.find(n=>n.id===nodeId);
+  if(!node)throw new Error('找不到来源卡片');
+  const mode=project.explorationMode==='inspiration'?'organize':'inspiration';
+  const upstream=ancestorsOf(project,nodeId);
+  const titles=new Map(upstream.map(n=>[n.id,n.title]));
+  const trail=upstream.map(n=>{
+    const parents=n.parentIds.map(id=>titles.get(id)).join('、');
+    return [KINDS[n.kind].label+' · '+n.title,parents&&'上层：'+parents,n.description,n.rationale,n.meta?.core,Array.isArray(n.meta?.assumptions)&&n.meta.assumptions.join('；')].filter(Boolean).join('\n');
+  });
+  const inherited=[project.inheritedContext||project.initialBrief||project.description,project.context&&'来源画布条件：'+project.context,...trail].filter(Boolean).join('\n\n');
+  const context=project.context;
+  switchExplorationMode(project,mode);
+  const existing=modeCanvases(project).find(canvas=>rootOf(canvas).sourceCardId===nodeId);
+  if(existing){
+    selectModeCanvas(project,rootOf(existing).id);
+    return;
+  }
+  const next=createProject(node.description||node.title);
+  Object.assign(rootOf(next),{title:node.title,rationale:node.rationale,sourceCardId:nodeId});
+  next.context=context;
+  next.inheritedContext=inherited;
+  (project.otherCanvases??=[]).push({mode,canvas:canvasSnapshot(project)});
+  Object.assign(project,canvasSnapshot(next));
+}
+export function generationProject(project){
+  return {title:project.title,description:project.description,context:project.context,...(project.inheritedContext?{source_context:project.inheritedContext}:{})};
 }
 
 // Delete exactly the selected cards; keep unselected children and shared intersections.

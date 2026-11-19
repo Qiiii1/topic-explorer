@@ -1,0 +1,63 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {appendGenerated,createProject,favoriteNode,generationProject,mergeNodes,modeCanvases,rootOf,selectModeCanvas,switchExplorationMode,transferCard,validateProject} from '../app/domain.js';
+import {inspirationInput} from '../app/inspiration.js';
+import {generationPayload} from '../app/model-protocol.js';
+
+const child=(project,parent,kind,title)=>appendGenerated(project,parent.id,kind,[{title,description:title+'的描述',rationale:title+'的理由'}])[0];
+const reload=project=>validateProject(JSON.parse(JSON.stringify(project)));
+
+test('卡片转换后沿两条来源路径生成，跨多次转换保留条件和来源',()=>{
+  const project=createProject('社区公共空间');
+  project.context='晚间使用';
+  const root=rootOf(project);
+  const left=child(project,root,'scene','散步');
+  const right=child(project,root,'scene','遛狗');
+  child(project,root,'scene','无关场景');
+  const joint=mergeNodes(project,left.id,right.id,{title:'夜间步道',description:'一条共用步道',rationale:'共享照明'});
+  transferCard(project,joint.id);
+  assert.equal(project.explorationMode,'inspiration');
+  assert.deepEqual(project.nodes.map(n=>[n.kind,n.title,n.x,n.y]),[['root','夜间步道',0,0]]);
+  const input=inspirationInput(project,rootOf(project));
+  assert.equal(input.action,'generate_directions');
+  const prompt=generationPayload(input,{model:'test'}).messages[1].content;
+  for(const term of ['社区公共空间','晚间使用','散步的描述','遛狗的理由','共享照明'])assert.ok(prompt.includes(term));
+  assert.ok(!prompt.includes('无关场景'));
+  const direction=child(project,rootOf(project),'direction','借用萤火虫');
+  project.context='柔光';
+  transferCard(project,direction.id);
+  assert.equal(project.explorationMode,'organize');
+  assert.equal(rootOf(project).title,direction.title);
+  const background=generationProject(reload(project));
+  assert.match(background.source_context,/散步的描述/);
+  assert.match(background.source_context,/借用萤火虫的理由/);
+  assert.match(background.source_context,/晚间使用/);
+  assert.equal(background.context,'柔光');
+});
+
+test('保存、切回及重复进入时恢复每个中心的分支、位置和收藏',()=>{
+  let p=createProject('原题');
+  const originalId=rootOf(p).id;
+  switchExplorationMode(p,'inspiration');
+  const first=child(p,rootOf(p),'direction','方向一');
+  const second=child(p,rootOf(p),'direction','方向二');
+  transferCard(p,first.id);
+  const firstCentre=rootOf(p).id;
+  const scene=child(p,rootOf(p),'scene','原有分支');
+  favoriteNode(p,scene.id);
+  scene.x=900;
+  switchExplorationMode(p,'inspiration');
+  transferCard(p,second.id);
+  assert.notEqual(rootOf(p).id,firstCentre);
+  p=reload(p);
+  assert.equal(modeCanvases(p).length,3);
+  selectModeCanvas(p,originalId);
+  assert.equal(rootOf(p).title,'原题');
+  assert.equal(generationProject(p).source_context,undefined);
+  switchExplorationMode(p,'inspiration');
+  transferCard(p,first.id);
+  assert.equal(rootOf(p).id,firstCentre);
+  assert.equal(p.nodes.find(n=>n.id===scene.id).x,900);
+  assert.equal(p.favorites[0].nodeId,scene.id);
+  assert.equal(modeCanvases(p).length,3);
+});

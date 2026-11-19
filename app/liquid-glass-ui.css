@@ -375,3 +375,7 @@ lg-button.add-card-button .action-glyph{width:23px;height:23px;stroke-width:2}
 #nodes .idea-card.kind-root .card-surface::after{content:none}
 #nodes .idea-card.kind-root.is-upstream:not(.is-selected) .card-surface{border-color:#fff8e8;box-shadow:0 0 0 2px #fff0d685,0 0 14px #ffd49a40,0 8px 20px #9a6c321a,0 1px 0 #ffffffd9 inset}
 #nodes .idea-card.kind-root.is-selected .card-surface{border:3px solid #007aff;box-shadow:0 0 0 5px #007aff1c,0 9px 26px #007aff16,0 1px 0 #ffffffd9 inset}
+
+.mode-dock:has(#mode-canvas){display:flex;align-items:center;max-width:100%;gap:4px}
+#mode-canvas{min-width:0;max-width:min(30vw,180px);height:var(--mode-control-size);border:1px solid #d9e1ec;border-radius:18px;padding:0 10px;background:#f8faff;color:#435973;font:inherit;font-size:12px;text-overflow:ellipsis}
+.inherited-context{white-space:pre-line;overflow-wrap:anywhere}

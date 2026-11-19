@@ -11,7 +11,7 @@ export function inspirationStep(project,node) {
 const historyNode=node=>({id:node.id,type:node.kind==='root'?'brief':node.kind,parent_id:node.parentIds[0]||null,title:node.title,summary:node.description||'',meta:node.meta||null});
 export function inspirationInput(project,node) {
   const step=inspirationStep(project,node),root=rootOf(project);
-  return {operation:'inspire',...step,brief:{original:root.description||project.description||root.title,explicit_requirements:project.context||''},selected_node_id:node.id,node:historyNode(node),ancestors:ancestorsOf(project,node.id).map(historyNode),nodes:project.nodes.map(historyNode)};
+  return {operation:'inspire',...step,brief:{original:root.description||project.description||root.title,explicit_requirements:project.context||'',...(project.inheritedContext?{source_context:project.inheritedContext}:{})},selected_node_id:node.id,node:historyNode(node),ancestors:ancestorsOf(project,node.id).map(historyNode),nodes:project.nodes.map(historyNode)};
 }
 export function validateInspirationInput(input) {
   const type=input.node?.type,step=STEPS[type==='brief'?'root':type];
