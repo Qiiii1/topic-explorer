@@ -1,7 +1,7 @@
 import {inspirationStep,inspirationInput} from './inspiration.js';
 import { KINDS, CARD, uid, clone, createProject, switchExplorationMode, transferCard, modeCanvases, selectModeCanvas, generationProject, rootOf, getPaths, ancestorsOf, descendantsOf, appendGenerated, mergeNodes, assignParent, favoriteNode, removeBranch, removeSelectedNodes, visibleNodes, boundsOf, validateProject, toMarkdown, planNearbySpace, planGenerationSpace, branchPositions, moveBranch, arrangeByMainline, canCombine, repelCards, spreadCrowdedCards, nodesInRect, selectionExport, importSelection } from './domain.js';
 import { demoGenerate } from './demo.js';
-import {createModelRuntime} from './model-runtime.js';
+import {createBrowserModelClient} from './browser-model.js';
 import './vendor/liquid-glass/components.js';
 import './home-logo.js';
 import {wheelIntent,gestureFactor,zoomView} from './canvas-gestures.js';
@@ -23,7 +23,7 @@ const chip=(kind,label=KINDS[kind].label)=>`<span class="type-chip type-${kind}"
 const actionGlyph=name=>`<svg class="action-glyph" viewBox="0 0 24 24" aria-hidden="true">${name==='undo'?'<path d="m9 5-5 5 5 5M4 10h10a5 5 0 0 1 0 10h-3"/>':name==='minus'?'<path d="M5 12h14"/>':name==='star'?'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/>':'<path d="M12 5v14M5 12h14"/>'}</svg>`;
 const glassAction=(label,action,options={})=>`<lg-button class="glass-action ${options.class||''} ${options.iconOnly?'glass-icon-action':''}" tone="light" radius="16" refraction="14" backdrop="#surface" data-action="${action}" ${options.iconOnly?`aria-label="${esc(label)}" title="${esc(options.title||label)}"`:''} ${options.id?`data-id="${esc(options.id)}"`:''} ${options.disabled?'disabled':''} ${options.extra||''}>${options.icon?icon(options.icon):options.glyph?actionGlyph(options.glyph):''}${options.iconOnly?'':label}</lg-button>`;
 const generations=new GenerationHistory();
-const modelRuntime=createModelRuntime({hosted:!!document.querySelector('meta[name="topic-runtime"][content="hosted"]'),apiBase:document.querySelector('meta[name="topic-api-base"]')?.content||''});
+const aiClient=createBrowserModelClient();
 const STORAGE='topic-explorer-projects-v1';
 let projects=[];try{projects=JSON.parse(localStorage.getItem(STORAGE)||'[]').flatMap(value=>{try{return [validateProject(value)];}catch{return [];}});}catch{projects=[];}
 let p=null,screen='home',selected=null,menu=null,showShelf=false,showOutline=false,focusId=null,showHidden=false,assigning=null,connecting=null,pending=null,search='',query='',editing=null,branchMenu=false,modal=null,model={mode:'unconfigured',model:''},view={x:0,y:0,scale:1},savedSelection=new Set(),savedMultiSelect=false,drag=null,spaceHeld=false;
@@ -50,19 +50,24 @@ function setCanvasSelection(ids,primary=null){
 }
 function selectOnly(id){setCanvasSelection(id?[id]:[],id);}
 function selectedPaths(){try{return getPaths(p,current().id);}catch{return [];}}
-const api=(path,body,signal)=>modelRuntime.request(path,body,signal);
-async function refreshModel(){try{model=await api('/status');if(model.mode==='demo')model.mode='unconfigured';}catch{model={mode:'unconfigured',model:''};}model.managed=!!model.managed||modelRuntime.managed;updateModelBadge();}
-function updateModelBadge(){const el=$('#model-status');if(el){el.innerHTML=`<span class="status-dot ${model.mode==='live'?'connected':''}"></span><span>${model.mode==='live'?esc(model.model):modelRuntime.managed?'AI 暂未连接':'连接 AI'}</span>`;el.title=model.managed?'AI 服务':'模型设置';}}
+const api=(path,body,signal)=>aiClient.request(path,body,signal);
+async function refreshModel(){try{model=await api('/status');}catch{model={mode:'unconfigured',model:''};}updateModelBadge();}
+function updateModelBadge(){
+  const live=model.mode==='live',label=live?model.model:'API 配置';
+  const title=live?`AI 接口已连接：${model.model}（点击修改或清除）`:'配置自己的 AI 接口（DeepSeek 等）';
+  for(const el of $$('[data-model-badge]')){el.innerHTML=`<span class="status-dot ${live?'connected':''}"></span><span>${esc(label)}</span>`;el.title=title;el.classList.toggle('is-live',live);}
+}
 function header(){return `<header class="app-header">
   <div class="header-start"><button class="brand" data-action="home" aria-label="有点想法，返回首页"><span class="brand-mark" aria-hidden="true"><img class="brand-logo" src="./assets/brand/logo.svg" alt="" width="44" height="30"></span><span>有点想法<span class="brand-dot">.</span></span></button>
   ${screen==='workspace'?`<span class="header-divider"></span><button class="project-title" data-action="project-settings"><span class="project-title-text">${esc(p.title)}</span><svg class="small-chevron" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m5 6.5 3 3 3-3"/></svg></button><span class="autosaved"><span></span>已保存</span>`:''}</div>
   ${screen==='workspace'?`<button class="shelf-pull ${showShelf?'is-open':''}" data-action="shelf" aria-controls="shelf" aria-expanded="${showShelf}" aria-label="${showShelf?'拉起绳子，收起收藏':'拉下绳子，查看收藏'}，${p.favorites.length} 个方向" title="${showShelf?'拉起，收起收藏':'拉一下，查看收藏'}"><img src="./assets/icons/figma-shelf-pull.svg" alt="" aria-hidden="true"><span class="pull-count" ${p.favorites.length?'':'hidden'}>${p.favorites.length}</span></button>`:''}
   <div class="header-actions">${screen==='workspace'?`<label class="search-field">${icon('search')}<input id="node-search" aria-label="搜索节点" placeholder="搜索想法" value="${esc(search)}"></label>${button('导出','export')}${button('分享','share')}`:''}
+  <button id="model-status" class="model-status" data-action="model" data-model-badge aria-label="配置 AI 接口" title="配置自己的 AI 接口（DeepSeek 等）"></button>
   </div></header>`;}
 function render(){if(screen==='home')renderHome();else renderWorkspace();updateModelBadge();}
 function renderHome(){
   cancelCollectionFlight();
-  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><div class="home-launch-content"><animated-brand-logo class="home-brand-logo"></animated-brand-logo><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project"><span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects"><span>打开项目</span></button></div></div></main>`;
+  screen='home';app.innerHTML=`<main class="home-launcher" aria-label="项目首页"><button class="model-status home-model-status" data-action="model" data-model-badge aria-label="配置 AI 接口" title="配置自己的 AI 接口（DeepSeek 等）"></button><div class="home-launch-content"><animated-brand-logo class="home-brand-logo"></animated-brand-logo><div class="launch-actions"><button class="launch-button launch-new" data-action="new-project"><span>新建探索</span></button><button class="launch-button launch-open" data-action="open-projects"><span>打开项目</span></button></div></div></main>`;updateModelBadge();
 }
 function canvasPicker(){
   const canvases=modeCanvases(p);
@@ -630,8 +635,7 @@ function dispatch(action,el){
     case'download-png':exportPng();break;
     case'print':printProject();break;
     case'copy-share':copyShare();break;
-    case'refresh-model':refreshModel().then(()=>{if(model.mode==='live'){const work=queuedAfterModel;closeModal();work?.();}else toast('AI 服务暂未连接，请稍后再试。','error');});break;
-    case'clear-model':api('/model/clear',{}).then(()=>{model={mode:'unconfigured'};closeModal();updateModelBadge();toast('已清除本次模型配置。');});break;
+    case'clear-model':api('/model/clear',{}).then(()=>{model={mode:'unconfigured',model:''};closeModal();updateModelBadge();toast('已清除 API 配置，密钥已从这台浏览器删除。');});break;
     case'copy-direction':{const saved=p.favorites.find(f=>f.id===id);copyText(toMarkdown(p,saved));break;}
     case'remove-saved':{
       const position=p.favorites.findIndex(f=>f.id===id);if(position<0)break;
@@ -685,14 +689,13 @@ function openModal(kind,data=null){
   if(kind==='new-project'){
     title='新建探索';body=`<form id="new-project-form"><label class="field"><span>选题内容</span><textarea id="project-description" rows="5" maxlength="2000" placeholder="请简单描述你的选题内容，一两句话也可以。" required></textarea></label><label class="field"><span>项目名称 <em>选填</em></span><input id="project-name" maxlength="50" ></label><div class="form-actions">${button('取消','close-modal')}<button type="submit" class="button primary">创建 ${icon('arrow')}</button></div></form>`;
   }
-  if(kind==='model'&&(model.managed||modelRuntime.managed)){
-    title='AI 服务';body=`<div class="original-idea"><strong>${model.mode==='live'?esc(model.model):'暂未连接'}</strong></div>`;footer=button('重新连接','refresh-model')+button('关闭','close-modal',{class:'primary'});
-  }
-  if(kind==='model'&&!model.managed&&!modelRuntime.managed){
+  if(kind==='model'){
     const deepseek=model.provider==='deepseek'||!model.baseUrl||model.baseUrl.includes('api.deepseek.com');
     const existingName=/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(model.model||'')||/^sk[-_]/.test(model.model||'')?'':model.model;
-    const choices=model.models?.length?model.models:[{id:'deepseek-flash'},{id:'deepseek-v4-pro'}];
-    title='连接你的 AI';body=`<form id="model-form"><label class="field"><span>模型服务</span><select id="model-provider"><option value="deepseek" ${deepseek?'selected':''}>DeepSeek 官方</option><option value="custom" ${deepseek?'':'selected'}>其他兼容服务</option></select></label><label class="field"><span>API 地址</span><input id="model-url" type="url" required value="${esc(model.baseUrl||'https://api.deepseek.com')}" placeholder="https://api.deepseek.com"></label><label class="field"><span>API Key · 密钥</span><input id="model-key" type="password" ${model.hasKey?'':'required'} placeholder="${model.hasKey?'已配置':'API Key'}" autocomplete="off"></label><label class="field"><span>模型 ID</span><div class="model-choice-row"><input id="model-name" list="available-models" required value="${esc(existingName||(deepseek?'deepseek-flash':''))}" placeholder="模型 ID" autocomplete="off"><button type="button" class="button" id="load-models">读取可用模型</button></div><datalist id="available-models">${choices.map(v=>`<option value="${esc(v.id)}">${esc(v.name||v.id)}</option>`).join('')}</datalist></label><p class="form-error" id="model-error" role="alert" hidden></p><div class="form-actions">${model.mode==='live'?button('清除配置','clear-model',{class:'danger-text'}):button('取消','close-modal')}<button type="submit" class="button primary" id="save-model">${queuedAfterModel?'验证并继续生成':deepseek?'保存并验证':'保存配置'}</button></div></form>`;
+    const choices=model.models||[];
+    const saved=model.mode==='live'?`<div class="model-state"><span class="status-dot connected"></span><div><strong>${esc(model.model)}</strong><span>${esc(model.baseUrl||'')} · ${model.remembered?'已保存在这台浏览器':'仅本次打开有效'}</span></div></div>`:'';
+    title='API 配置';
+    body=`${saved}<p class="modal-intro">填入自己的大模型接口，生成卡片时会直接调用它。配置只保存在这台电脑的浏览器里，不经过项目服务器，也不会写进项目文件或分享链接。</p><form id="model-form"><label class="field"><span>模型服务</span><select id="model-provider"><option value="deepseek" ${deepseek?'selected':''}>DeepSeek 官方</option><option value="custom" ${deepseek?'':'selected'}>其他兼容服务</option></select></label><label class="field"><span>API 地址</span><input id="model-url" type="url" required value="${esc(model.baseUrl||'https://api.deepseek.com')}" placeholder="https://api.deepseek.com" autocomplete="off" spellcheck="false"><small>DeepSeek 填 https://api.deepseek.com；其他兼容服务填对应的接口地址，例如 https://api.openai.com/v1 。</small></label><label class="field"><span>API Key <em>只保存在本机</em></span><input id="model-key" type="password" ${model.hasKey?'':'required'} placeholder="${model.hasKey?'已配置，留空则沿用原来的密钥':'sk-…'}" autocomplete="off" spellcheck="false"><small>密钥不会上传，也不会出现在导出的项目文件里；清除配置会同时删除这条记录。</small></label><label class="field"><span>模型 ID</span><div class="model-choice-row"><input id="model-name" list="available-models" required value="${esc(existingName)}" placeholder="点击右侧读取可用模型" autocomplete="off" spellcheck="false"><button type="button" class="button" id="load-models">读取可用模型</button></div><datalist id="available-models">${choices.map(v=>`<option value="${esc(v.id)}">${esc(v.name||v.id)}</option>`).join('')}</datalist><small>不同账号可用的模型名称不同，建议先填写密钥，再点击“读取可用模型”自动选择。</small></label><label class="check-field"><input id="model-remember" type="checkbox" ${model.mode==='live'&&!model.remembered?'':'checked'}><span>在这台浏览器记住配置，下次打开不用重填</span></label><p class="form-error" id="model-error" role="alert" hidden></p><div class="form-actions">${model.mode==='live'?button('清除配置','clear-model',{class:'danger-text'}):''}${button('取消','close-modal')}<button type="submit" class="button primary" id="save-model">${queuedAfterModel?'保存并继续生成':deepseek?'保存并验证':'保存配置'}</button></div></form>`;
   }
 
   if(kind==='project-settings'){
@@ -725,10 +728,10 @@ function closeModal(){if(modal?.kind==='saved-detail'){closeDirection(modal);ret
 function bindModal(kind,data){
   $('.modal-backdrop').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
   $('#new-project-form')?.addEventListener('submit',e=>{e.preventDefault();const description=$('#project-description').value.trim();if(!description)return;const project=createProject(description,$('#project-name').value);project.explorationMode='inspiration';projects.unshift(project);closeModal();openProject(project);persist();fanPinned=null;drawGraph();toast('已创建探索');});
-  const connectionInput=()=>({baseUrl:$('#model-url').value.trim(),provider:$('#model-provider').value,model:$('#model-name').value.trim(),apiKey:$('#model-key').value});
-  $('#model-provider')?.addEventListener('change',()=>{const deepseek=$('#model-provider').value==='deepseek';$('#model-url').value=deepseek?'https://api.deepseek.com':model.provider==='custom'?model.baseUrl:'';$('#model-name').value=deepseek?'deepseek-flash':model.provider==='custom'?model.model:'';$('#model-key').required=!model.hasKey;$('#save-model').textContent=queuedAfterModel?'验证并继续生成':deepseek?'保存并验证':'保存配置';});
+  const connectionInput=()=>({baseUrl:$('#model-url').value.trim(),provider:$('#model-provider').value,model:$('#model-name').value.trim(),apiKey:$('#model-key').value,remember:$('#model-remember').checked});
+  $('#model-provider')?.addEventListener('change',()=>{const deepseek=$('#model-provider').value==='deepseek';$('#model-url').value=deepseek?'https://api.deepseek.com':model.provider==='custom'?model.baseUrl:'';$('#model-name').value=deepseek?'':model.provider==='custom'?model.model:'';$('#model-key').required=!model.hasKey;$('#save-model').textContent=queuedAfterModel?'保存并继续生成':deepseek?'保存并验证':'保存配置';});
   $('#load-models')?.addEventListener('click',async()=>{const load=$('#load-models'),error=$('#model-error');load.disabled=true;load.textContent='正在读取…';error.hidden=true;try{const result=await api('/models',connectionInput());$('#available-models').innerHTML=result.models.map(v=>`<option value="${esc(v.id)}">${esc(v.name||v.id)}</option>`).join('');if(!result.models.some(v=>v.id===$('#model-name').value))$('#model-name').value=result.models[0].id;toast(`已读取 ${result.models.length} 个模型`);}catch(err){error.hidden=false;error.textContent=err.message;}finally{load.disabled=false;load.textContent='读取可用模型';}});
-  $('#model-form')?.addEventListener('submit',async e=>{e.preventDefault();const submit=$('#save-model'),error=$('#model-error');submit.disabled=true;submit.textContent='正在验证…';error.hidden=true;try{model=await api('/model',connectionInput());const work=queuedAfterModel;closeModal();updateModelBadge();toast('模型配置已保存');work?.();}catch(err){error.hidden=false;error.textContent=err.message;submit.disabled=false;submit.textContent='重试保存';}});
+  $('#model-form')?.addEventListener('submit',async e=>{e.preventDefault();const submit=$('#save-model'),error=$('#model-error');submit.disabled=true;submit.textContent='正在验证…';error.hidden=true;try{model=await api('/model',connectionInput());const work=queuedAfterModel;closeModal();updateModelBadge();toast(model.remembered?'API 配置已保存，下次打开会自动连接。':'API 配置已生效，仅本次打开有效。');work?.();}catch(err){error.hidden=false;error.textContent=err.message;submit.disabled=false;submit.textContent='重试保存';}});
   $('#context-form')?.addEventListener('submit',e=>{e.preventDefault();const title=$('#context-title').value.trim(),context=$('#context-text').value.trim();commit(()=>Object.assign(p,{title,context}));closeModal();renderWorkspace();toast('背景已保存');});
   $('#confirm-delete')?.addEventListener('click',()=>{if(kind==='delete-node'){commit(()=>{const before=clone(p),removed=removeBranch(p,data);generations.recordDeletion(before,removed);});if(!p.nodes.some(n=>n.id===focusId))focusId=null;selectOnly(rootOf(p).id);closeModal();renderWorkspace();toast('已删除分支。');}else{projects=projects.filter(v=>v.id!==data);p=null;persist();closeModal();renderHome();}});
 }

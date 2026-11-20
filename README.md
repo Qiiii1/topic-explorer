@@ -4,12 +4,11 @@
 
 # 有点想法 · 选题与灵感画布
 
-[![Checks](https://github.com/Qiiii1/topic-explorer/actions/workflows/ci.yml/badge.svg)](https://github.com/Qiiii1/topic-explorer/actions/workflows/ci.yml)
-[![Publish website](https://github.com/Qiiii1/topic-explorer/actions/workflows/pages.yml/badge.svg)](https://github.com/Qiiii1/topic-explorer/actions/workflows/pages.yml)
-
 面向设计项目与研究选题的 AI 画布。从一个粗想法出发，逐步细化问题，或通过跨域组合探索新方向；每张卡片保留来源和关联理由，让思路看得见来路。
 
-**[在线使用](https://qiiii1.github.io/topic-explorer/) · [查看示例](https://qiiii1.github.io/topic-explorer/?demo=1)**
+> 本版本取消了项目内置的模型接口：没有服务端密钥、没有托管后端，也不读取 `.env`。所有 AI 生成都使用使用者自己在右上角「API 配置」里填写的接口，配置只保存在本机浏览器。
+>
+> 详细的安装、功能与配置说明见 **[使用说明.txt](使用说明.txt)**。
 
 ## 两种探索方式
 
@@ -29,7 +28,7 @@
 3. 用卡片左上角的编辑按钮修改标题、描述和关联理由，修改后的内容会影响下一次生成。
 4. 选中卡片查看来路与直接下一级；收藏感兴趣的方向，再导出或分享。
 
-示例画布使用预置卡片，打开示例不会调用模型；继续生成需要真实 AI 服务。
+示例画布使用预置卡片，打开示例不会调用模型；继续生成需要先在右上角配置 API。
 
 ## 当前功能
 
@@ -58,122 +57,62 @@
 
 ### 保存与分享
 
-项目存储在当前浏览器的 `localStorage`，服务端不保存画布。线上网页、本地服务和不同浏览器的存储相互独立，可用 JSON 导入导出迁移；清理网站数据前请先导出。
+项目存储在当前浏览器的 `localStorage`，服务端不保存画布。不同浏览器、不同设备的存储相互独立，可用 JSON 导入导出迁移；清理网站数据前请先导出。
 
-分享链接包含项目内容快照，不包含模型密钥。接收者获得独立副本，双方后续编辑互不影响。选区导出只包含选中的节点及内部连线；选区 JSON 可重新导入为新探索。
+分享链接包含项目内容快照，不包含 API Key。接收者获得独立副本，双方后续编辑互不影响。选区导出只包含选中的节点及内部连线；选区 JSON 可重新导入为新探索。
 
-## 本地运行
+## 运行
 
-需要 Node.js 22 或更新版本，推荐使用 `.nvmrc` 指定的 Node 22。
-
-```sh
-git clone https://github.com/Qiiii1/topic-explorer.git
-cd topic-explorer
-npm ci
-npm start
-```
-
-打开 **http://127.0.0.1:4178/**。请通过本地服务访问，直接双击 HTML 文件不能正常运行模型接口和模块。
-
-指定其他端口：
+需要 Node.js 22 或更新版本（`.nvmrc` 为 22）。项目没有运行时依赖，**不需要 `npm install`**。
 
 ```sh
-npm start -- --port 4180
+npm start                 # 启动后访问 http://127.0.0.1:4178/
+npm start -- --port 4180  # 换一个端口
+npm run dev               # 修改文件后自动重启
 ```
 
-### 配置本地 AI
+也可以直接双击 `启动.command`（macOS）或 `启动.bat`（Windows），效果与 `npm start` 相同。
 
-推荐使用环境变量：
+只打开 `app/index.html`（`file://`）无法运行，因为页面使用 ES 模块，必须通过本地服务访问。
 
-```sh
-cp .env.example .env
-```
+## 配置 AI 接口
 
-编辑 `.env`，填写模型 ID 和 API Key，再启动：
+右上角的「API 配置」是唯一入口（首页右上角同样有入口）。填写：
 
-```sh
-npm run start:env
-```
-
-| 变量 | 用途 | 默认值 |
-| --- | --- | --- |
-| `PORT` | 本地服务端口 | `4178` |
-| `TOPIC_AI_BASE_URL` | Chat Completions 服务基础地址 | `https://api.deepseek.com` |
-| `TOPIC_AI_MODEL` | 服务商提供的模型 ID | 空 |
-| `TOPIC_AI_API_KEY` | 模型服务密钥 | 空 |
-
-服务需要兼容 Chat Completions 并支持 JSON 输出。基础地址不用填写 `/chat/completions` 后缀。
-
-本地未配置模型时，首次生成会弹出模型设置；右上角不再显示 AI 配置入口。通过页面填写的密钥只保存在本地 Node 服务进程内存，关闭后清除；`.env` 中的配置由使用者自行保存，该文件已被 Git 忽略。`npm start` 读取系统环境变量，`npm run start:env` 额外读取 `.env`。
-
-## 技术路径与部署
-
-前端使用原生 JavaScript、DOM 卡片和 SVG 连线；线上网页由 GitHub Pages 托管，Cloudflare Workers 转发 AI 请求并校验结果。模型调用支持 DeepSeek 等兼容 Chat Completions 的服务。
-
-```mermaid
-flowchart LR
-    Web["浏览器画布 · GitHub Pages"] -->|"项目背景 / 当前节点 / 上游路径 / 已有结果"| API["Cloudflare Workers"]
-    API -->|"规则与上下文 / 服务端密钥"| Model["DeepSeek / Chat Completions"]
-    Model -->|"结构化 JSON"| API
-    API -->|"校验后的卡片与理由"| Web
-    Web --> Store["localStorage · 本地项目"]
-```
-
-每次生成会携带题目、明确条件、当前卡片、上游路径与已有结果。梳理模式按目标维度细化或提取交集；灵感模式按阶段继承方向核心、约束变化并减少重复。生成失败或取消后恢复预留布局，已有卡片保留。
-
-### 发布到 GitHub Pages + Cloudflare
-
-完整步骤见 **[Cloudflare 部署说明](cloudflare/README.md)**。
-
-| 配置 | 放在哪里 | 用途 |
-| --- | --- | --- |
-| `TOPIC_AI_API_KEY` | Cloudflare **Secret** | 模型密钥，仅服务端读取 |
-| `TOPIC_AI_BASE_URL`、`TOPIC_AI_MODEL` | Cloudflare 变量 | 模型接口与模型 ID |
-| `TOPIC_WEB_ORIGINS` | Cloudflare 变量 | 允许的网页来源，如 `https://qiiii1.github.io` |
-| `TOPIC_API_BASE_URL` | GitHub Actions 仓库 **Variable** | 公开的 Worker 域名，不带 `/api` 路径 |
-
-在线访客直接使用托管的 AI 接口，页面不提供站点密钥配置入口。
-
-```sh
-npm run cf:deploy
-npm run build:pages
-```
-
-先部署 Worker 并配置模型，再设置公开的后端地址、发布网页。推送 `main` 后，[Publish website](https://github.com/Qiiii1/topic-explorer/actions/workflows/pages.yml) 会自动检查、构建并发布。GitHub Pages 使用 GitHub Actions 作为发布来源，不需要将模型密钥放入 GitHub。
-
-`build:pages` 输出 `dist/`，只复制网页资源并注入公开的后端地址，不打包服务端密钥。CSS 和 JavaScript 模块会附带统一的内容版本标识，避免发布后继续加载旧资源。
-
-## 开发与检查
-
-| 命令 | 用途 |
+| 字段 | 说明 |
 | --- | --- |
-| `npm run dev` | 监听本地服务代码并自动重启 |
-| `npm run validate` | 语法检查与行为测试，不调用真实模型 |
-| `npm run cf:dev` | 在本机 `4183` 端口运行 Worker |
-| `npm run cf:check` | 检查 Worker 打包，不上传 |
-| `npm run build:pages` | 构建 GitHub Pages 网页 |
-| `npm pack` | 生成源码包，不发布到 npm |
+| 模型服务 | DeepSeek 官方，或其他兼容 OpenAI Chat Completions 的服务 |
+| API 地址 | 例如 `https://api.deepseek.com`；其他服务填其接口地址 |
+| API Key | 在服务商后台创建；提交后只保存在本机浏览器 |
+| 模型 ID | 可点「读取可用模型」自动拉取账号可用的模型 |
 
-[GitHub Actions](https://github.com/Qiiii1/topic-explorer/actions) 在 Node 22、24 上检查语法、运行测试、构建网页、检查 Worker 打包和源码包内容。
+勾选「在这台浏览器记住配置」会写入 `localStorage`，下次打开自动连接；取消勾选则只在本次打开有效。「清除配置」会立即删除这条记录。
 
-主要代码：
+浏览器会直接从本机调用模型服务，因此服务必须允许跨域访问（CORS）。DeepSeek 官方接口已支持；其他服务若不支持，生成时会提示网络或跨域错误。
 
-| 文件 | 职责 |
+## 目录
+
+| 路径 | 作用 |
 | --- | --- |
-| [app/app.js](app/app.js) | 页面、画布交互、收藏与导出 |
-| [app/domain.js](app/domain.js) | 节点关系、布局、分支与项目数据 |
-| [app/inspiration.js](app/inspiration.js)、[app/inspiration-rules.js](app/inspiration-rules.js) | 灵感阶段协议与规则快照 |
-| [app/model-protocol.js](app/model-protocol.js) | 模型请求构造与结果校验 |
-| [app/home-logo.js](app/home-logo.js) | 首页 SVG Logo 循环动画 |
-| [cloudflare/worker.js](cloudflare/worker.js) | 托管 AI 接口 |
-| [scripts/build-pages.mjs](scripts/build-pages.mjs) | 网页构建、后端地址注入与资源版本 |
+| [app/index.html](app/index.html) | 页面入口 |
+| [app/app.js](app/app.js) | 主程序：界面渲染、画布交互、生成流程、导出与分享 |
+| [app/domain.js](app/domain.js) | 项目数据模型、校验、模式切换与画布布局 |
+| [app/browser-model.js](app/browser-model.js) | 浏览器端 AI 客户端与本地配置保存 |
+| [app/model-protocol.js](app/model-protocol.js) | 提示词、请求体与返回结果的校验 |
+| [app/inspiration.js](app/inspiration.js) · [app/inspiration-rules.js](app/inspiration-rules.js) | 灵感模式的三阶段生成与校验规则 |
+| [app/demo.js](app/demo.js) | 示例画布的预置卡片 |
+| [app/styles.css](app/styles.css) · [app/interactions.css](app/interactions.css) · [app/liquid-glass-ui.css](app/liquid-glass-ui.css) | 样式与动效 |
+| [server.mjs](server.mjs) | 仅提供静态文件服务的本地服务器 |
+| [test/](test/) | Node 自带的测试用例 |
 
-液态玻璃组件随项目本地打包，许可见 [liquid-glass-web / MIT](app/vendor/liquid-glass/LICENSE.txt)。图标来源包括 Figma 原稿和 [Tabler Icons](https://tabler.io/icons)。
+## 测试
 
-## 当前范围
+```sh
+npm test        # node --test
+npm run check   # 语法检查
+npm run validate
+```
 
-`main` 尚未接入账号登录、每账号 30 次免费额度、云同步或多人实时协作。工具用于探索和整理待调研的想法，不提供论文检索或学术创新性判定。
+## 许可
 
-## License
-
-MIT © 2026 Qiiii1
+[MIT](LICENSE)

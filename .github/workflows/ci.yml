@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches: [main, 'codex/cloudflare-server']
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -29,15 +29,6 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ matrix.node }}
-      - name: Install from lockfile
-        run: npm ci --ignore-scripts --no-audit --no-fund
+      # 项目没有 npm 依赖，不需要安装步骤。
       - name: Check syntax and behavior
         run: npm run validate
-      - name: Build managed frontend
-        run: npm run build:pages
-      - name: Bundle Cloudflare API
-        run: npm run cf:check
-        env:
-          WRANGLER_SEND_METRICS: 'false'
-      - name: Verify package contents
-        run: npm pack --dry-run

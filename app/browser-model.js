@@ -1,9 +1,32 @@
 import {normalizeConfig,providerError,generationPayload,validateGenerationInput,generationResult} from './model-protocol.js';
 
-// One instance belongs to one open page. Credentials never enter storage or project data.
-export function createBrowserModelClient({fetcher=fetch}={}){
-  let config=null;
-  const status=()=>({mode:config?'live':'unconfigured',model:config?.model||'',baseUrl:config?.baseUrl||'',provider:config?.provider||'',hasKey:!!config?.apiKey,verified:!!config?.verified,models:config?.models||[]});
+// 模型接口由使用者自己配置：配置只保存在本机浏览器，不上传服务器，不写入项目文件。
+// 选择“记住配置”时写入 localStorage，取消勾选或清除配置会立即删除这条记录。
+export const STORAGE_KEY='topic-explorer-ai-config-v1';
+
+function defaultStorage(){try{return globalThis.localStorage??null;}catch{return null;}}
+
+export function createBrowserModelClient({fetcher=fetch,storage=defaultStorage()}={}){
+  const read=()=>{
+    try{
+      const raw=storage?.getItem(STORAGE_KEY);
+      if(!raw)return null;
+      const value=JSON.parse(raw);
+      if(typeof value?.baseUrl!=='string'||typeof value?.model!=='string'||typeof value?.apiKey!=='string'||!value.apiKey)return null;
+      return {baseUrl:value.baseUrl,model:value.model,apiKey:value.apiKey,provider:value.provider==='deepseek'?'deepseek':'custom'};
+    }catch{return null;}
+  };
+  const write=next=>{
+    try{
+      if(!storage)return;
+      if(next)storage.setItem(STORAGE_KEY,JSON.stringify({baseUrl:next.baseUrl,model:next.model,apiKey:next.apiKey,provider:next.provider}));
+      else storage.removeItem(STORAGE_KEY);
+    }catch{}
+  };
+  let config=read();
+  let remembered=!!config;
+  // 密钥不会出现在返回值里，界面只拿得到“是否已配置”。
+  const status=()=>({mode:config?'live':'unconfigured',model:config?.model||'',baseUrl:config?.baseUrl||'',provider:config?.provider||'',hasKey:!!config?.apiKey,verified:!!config?.verified,remembered,models:config?.models||[]});
   async function send(connection,path,{body,signal,timeout=15000}={}){
     const timeoutSignal=AbortSignal.timeout(timeout);
     const combined=signal?AbortSignal.any([signal,timeoutSignal]):timeoutSignal;
@@ -36,7 +59,7 @@ export function createBrowserModelClient({fetcher=fetch}={}){
   return {async request(path,input,signal){
     if(signal?.aborted)throw new DOMException('生成已取消','AbortError');
     if(path==='/status')return status();
-    if(path==='/model/clear'){config=null;return status();}
+    if(path==='/model/clear'){config=null;remembered=false;write(null);return status();}
     if(path==='/models')return {models:await models(normalizeConfig(input,config,true),signal)};
     if(path==='/model'){
       const next=normalizeConfig(input,config);
@@ -45,10 +68,14 @@ export function createBrowserModelClient({fetcher=fetch}={}){
         if(!next.models.some(v=>v.id===next.model))throw new Error('这个模型名称不在服务返回的列表中，请读取可用模型后重新选择。');
         next.verified=true;
       }
-      config=next;return status();
+      config=next;
+      const keep=input?.remember!==false;
+      remembered=keep&&!!storage;
+      write(keep?next:null);
+      return status();
     }
     if(path!=='/generate')throw new Error('未找到操作');
-    if(!config)throw new Error('请先连接你的 AI 服务，再生成卡片。');
+    if(!config)throw new Error('请先在右上角配置 AI 接口，再生成卡片。');
     validateGenerationInput(input);
     const connection=config,result=await send(connection,'/chat/completions',{body:generationPayload(input,connection),signal,timeout:90000});
     if(signal?.aborted)throw new DOMException('生成已取消','AbortError');

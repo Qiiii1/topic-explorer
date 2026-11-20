@@ -1,13 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Readable} from 'node:stream';
-import {EventEmitter} from 'node:events';
 import {createProject,rootOf,appendGenerated,switchExplorationMode,validateProject,favoriteNode,selectionExport,importSelection,getPaths,canCombine} from '../app/domain.js';
 import {GenerationHistory} from '../app/generation-history.js';
 import {inspirationInput,validateInspirationResult} from '../app/inspiration.js';
 import {generationPayload,validateGenerationInput} from '../app/model-protocol.js';
 import {createBrowserModelClient} from '../app/browser-model.js';
-import {createPrototypeServer} from '../server.mjs';
 
 const connection={baseUrl:'https://model.example/v1',model:'test-model',apiKey:'test-only-secret'};
 function resultFor(input,suffix='') {
@@ -17,13 +14,6 @@ function add(project,parent,suffix='') {
   const input=inspirationInput(project,parent),result=validateInspirationResult(resultFor(input,suffix),input);
   return appendGenerated(project,parent.id,input.targetKind,result.nodes,'live');
 }
-async function request(server,body) {
-  const req=Readable.from([Buffer.from(JSON.stringify(body))]);Object.assign(req,{method:'POST',url:'/api/generate',headers:{host:'127.0.0.1:4178'}});
-  const res=new EventEmitter();Object.assign(res,{writableEnded:false,destroyed:false,statusCode:200});
-  res.writeHead=status=>{res.statusCode=status;return res;};res.end=value=>{res.body=JSON.parse(value);res.writableEnded=true;};
-  await server.listeners('request')[0](req,res);return {status:res.statusCode,...res.body};
-}
-
 test('两种模式各自保存节点、位置、收藏、背景和数量，刷新后切换可恢复',()=>{
   let project=createProject('完整题目'.repeat(40));project.context='明确要求：四周完成';project.generationCount=6;
   const root=rootOf(project),original=root.description;
@@ -85,25 +75,22 @@ test('来源和阶段校验、方向证据、演进保留点、重复过滤及�
   p.inspirationCount=6;assert.equal(inspirationInput(p,idea).count,6);assert.equal(validateProject(p).inspirationCount,6);
 });
 
-test('本地服务与在线客户端完整支持所有灵感阶段，并在请求前拒绝阶段错配',async()=>{
-  for(const runtime of ['local','browser']) {
-    let calls=0;
-    const fetcher=async(_url,options)=>{
-      calls++;const payload=JSON.parse(options.body),text=payload.messages[1].content,input=JSON.parse(text.slice(text.indexOf('\n\n')+2));
-      return Response.json({choices:[{message:{content:JSON.stringify(resultFor(input))}}]});
-    };
-    const server=createPrototypeServer(connection,{fetcher}),client=createBrowserModelClient({fetcher});await client.request('/model',connection);
-    const run=input=>runtime==='local'?request(server,input):client.request('/generate',input);
-    const p=createProject('不使用屏幕的协作体验');switchExplorationMode(p,'inspiration');let node=rootOf(p);
-    for(const action of ['generate_directions','generate_ideas','evolve_idea']) {
-      const input=inspirationInput(p,node);assert.equal(input.action,action);
-      const result=await run(input);if(runtime==='local')assert.equal(result.status,200);assert.equal(result.mode,'live');assert.equal(result.nodes.length,input.count);
-      node=appendGenerated(p,node.id,input.targetKind,result.nodes,'live')[0];
-    }
-    const bad={...inspirationInput(p,node),targetKind:'pain'};
-    if(runtime==='local')assert.equal((await run(bad)).status,400);else await assert.rejects(()=>run(bad),/阶段/);
-    assert.equal(calls,3);
+test('在线客户端完整支持所有灵感阶段，并在请求前拒绝阶段错配',async()=>{
+  let calls=0;
+  const fetcher=async(_url,options)=>{
+    calls++;const payload=JSON.parse(options.body),text=payload.messages[1].content,input=JSON.parse(text.slice(text.indexOf('\n\n')+2));
+    return Response.json({choices:[{message:{content:JSON.stringify(resultFor(input))}}]});
+  };
+  const client=createBrowserModelClient({fetcher,storage:null});await client.request('/model',connection);
+  const p=createProject('不使用屏幕的协作体验');switchExplorationMode(p,'inspiration');let node=rootOf(p);
+  for(const action of ['generate_directions','generate_ideas','evolve_idea']) {
+    const input=inspirationInput(p,node);assert.equal(input.action,action);
+    const result=await client.request('/generate',input);assert.equal(result.mode,'live');assert.equal(result.nodes.length,input.count);
+    node=appendGenerated(p,node.id,input.targetKind,result.nodes,'live')[0];
   }
+  const bad={...inspirationInput(p,node),targetKind:'pain'};
+  await assert.rejects(()=>client.request('/generate',bad),/阶段/);
+  assert.equal(calls,3);
 });
 
 test('灵感生成取消后即使模型返回结果也不会接纳',async()=>{
